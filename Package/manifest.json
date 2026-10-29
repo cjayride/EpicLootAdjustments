@@ -5,6 +5,6 @@
   "description": "Zone-appropriate Epic Loot drops, quieter set abilities, optional hide of Epic Loot pause-menu config button.",
   "dependencies": [
     "denikson-BepInExPack_Valheim-5.4.2360",
-    "RandyKnapp-EpicLoot"
+    "RandyKnapp-EpicLoot-0.15.4"
   ]
 }
