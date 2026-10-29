@@ -8,7 +8,7 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <AssemblyName>Cjayride.EpicLootAdjustments</AssemblyName>
     <RootNamespace>Cjayride.EpicLootAdjustments</RootNamespace>
-    <Version>1.5.0</Version>
+    <Version>1.5.1</Version>
     <AppendTargetFrameworkToOutputPath>true</AppendTargetFrameworkToOutputPath>
   </PropertyGroup>
 

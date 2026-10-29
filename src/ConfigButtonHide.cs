@@ -8,6 +8,20 @@ namespace Cjayride.EpicLootAdjustments
 {
     public static class ConfigButtonHide
     {
+        static readonly string[] BrokerTypeNames =
+        {
+            "Common.QuickConfigBroker",
+            "EpicLoot.QuickConfigBroker",
+            "EpicLoot.Common.QuickConfigBroker"
+        };
+
+        static Type _brokerType;
+        static FieldInfo _instanceField;
+        static FieldInfo _pauseButtonField;
+        static FieldInfo _mainMenuButtonField;
+        static FieldInfo _listPanelField;
+        static bool _quickConfigAvailable;
+
         public static ConfigEntry<bool> HideButton;
 
         public static void Bind(ConfigFile config)
@@ -21,20 +35,33 @@ namespace Cjayride.EpicLootAdjustments
 
         public static void TryPatch(Harmony harmony)
         {
-            Type broker = AccessTools.TypeByName("Common.QuickConfigBroker");
-            if (broker == null)
+            _brokerType = ResolveBrokerType();
+            if (_brokerType == null)
             {
-                Plugin.Log.LogInfo("EpicLoot Quick Config button was not found (older EpicLoot).");
+                Plugin.Log.LogInfo("EpicLoot Quick Config button was not found. Config button hide is skipped (no Menu.Update work).");
                 return;
             }
 
-            PatchPrefix(harmony, broker, "TryBuildButtons", nameof(SkipIfHidden));
-            PatchPrefix(harmony, broker, "EnsurePauseButton", nameof(SkipIfHidden));
-            PatchPrefix(harmony, broker, "OnMenuStart", nameof(SkipIfHidden));
-            MethodInfo refresh = FindMethod(broker, "RefreshVisibility");
+            const BindingFlags instanceFlags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+            _instanceField = _brokerType.GetField("Instance", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
+            _pauseButtonField = _brokerType.GetField("pauseButton", instanceFlags);
+            _mainMenuButtonField = _brokerType.GetField("mainMenuButton", instanceFlags);
+            _listPanelField = _brokerType.GetField("listPanel", instanceFlags);
+            _quickConfigAvailable = true;
+
+            PatchPrefix(harmony, _brokerType, "TryBuildButtons", nameof(SkipIfHidden));
+            PatchPrefix(harmony, _brokerType, "EnsurePauseButton", nameof(SkipIfHidden));
+            PatchPrefix(harmony, _brokerType, "OnMenuStart", nameof(SkipIfHidden));
+            MethodInfo refresh = FindMethod(_brokerType, "RefreshVisibility");
             if (refresh != null)
             {
                 harmony.Patch(refresh, postfix: new HarmonyMethod(typeof(ConfigButtonHide), nameof(HideBrokerButtons)));
+            }
+
+            MethodInfo menuShow = AccessTools.Method(typeof(Menu), "Show");
+            if (menuShow != null)
+            {
+                harmony.Patch(menuShow, postfix: new HarmonyMethod(typeof(ConfigButtonHide), nameof(HideBrokerButtons)));
             }
 
             Plugin.Log.LogInfo(HideButton.Value
@@ -49,26 +76,42 @@ namespace Cjayride.EpicLootAdjustments
 
         public static void HideBrokerButtons()
         {
-            if (HideButton == null || !HideButton.Value)
+            if (!_quickConfigAvailable || HideButton == null || !HideButton.Value)
             {
                 return;
             }
 
-            Type broker = AccessTools.TypeByName("Common.QuickConfigBroker");
-            object instance = broker?.GetField("Instance", BindingFlags.Public | BindingFlags.Static)?.GetValue(null);
+            object instance = _instanceField?.GetValue(null);
             if (instance == null)
             {
                 return;
             }
 
-            HideField(broker, instance, "pauseButton");
-            HideField(broker, instance, "mainMenuButton");
-            HideField(broker, instance, "listPanel");
+            HideField(_pauseButtonField, instance);
+            HideField(_mainMenuButtonField, instance);
+            HideField(_listPanelField, instance);
         }
 
-        static void HideField(Type type, object instance, string fieldName)
+        static Type ResolveBrokerType()
         {
-            FieldInfo field = type.GetField(fieldName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            Assembly[] assemblies = AppDomain.CurrentDomain.GetAssemblies();
+            foreach (string name in BrokerTypeNames)
+            {
+                foreach (Assembly assembly in assemblies)
+                {
+                    Type type = assembly.GetType(name, false);
+                    if (type != null)
+                    {
+                        return type;
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        static void HideField(FieldInfo field, object instance)
+        {
             var go = field?.GetValue(instance) as GameObject;
             if (go != null && go.activeSelf)
             {
@@ -99,15 +142,6 @@ namespace Cjayride.EpicLootAdjustments
             }
 
             return null;
-        }
-    }
-
-    [HarmonyPatch(typeof(Menu), nameof(Menu.Update))]
-    static class MenuConfigButtonPatch
-    {
-        static void Postfix()
-        {
-            ConfigButtonHide.HideBrokerButtons();
         }
     }
 }

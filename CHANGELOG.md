@@ -1,3 +1,7 @@
+## 1.5.1
+- **FIX:** Stopped a severe FPS drop caused by looking up Epic Loot's Quick Config type every `Menu.Update` frame and Harmony-logging when that type is missing in Epic Loot **0.15.4**.
+- Config-button hide now caches types once at startup, skips all menu work when Quick Config is absent, and only re-hides on pause-menu `Show`.
+
 ## 1.5.0
 - **RENAME:** Mod is now **EpicLootAdjustments** (`com.cjayride.epiclootadjustments`, `Cjayride.EpicLootAdjustments.dll`). Remove any old `Cjayride.CLCCLootPatch.dll` from `BepInEx/plugins`.
 - **NEW:** GitHub repo, README, Thunderstore `manifest.json`, and package icon.
