@@ -1,6 +1,6 @@
 # ⚔️ EpicLootAdjustments
 
-**Customize Epic Loot for CJAYCRAFT progression in Valheim.**
+**Customize Epic Loot for progression in Valheim.**
 
 EpicLootAdjustments is a BepInEx plugin that balances loot progression, reduces heavy legendary set ability effects, and cleans up the Epic Loot interface.
 
