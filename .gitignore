@@ -1,0 +1,8 @@
+bin/
+obj/
+dist/
+*.user
+*.suo
+.vs/
+Environment.props
+tools/

@@ -1,0 +1,10 @@
+{
+  "name": "EpicLootAdjustments",
+  "version_number": "1.5.0",
+  "website_url": "https://github.com/cjayride/EpicLootAdjustments",
+  "description": "Zone-appropriate Epic Loot drops, quieter set abilities, optional hide of Epic Loot pause-menu config button. CJAYCRAFT progression helper.",
+  "dependencies": [
+    "denikson-BepInExPack_Valheim-5.4.2351",
+    "RandyKnapp-EpicLoot"
+  ]
+}
