@@ -8,7 +8,7 @@ using UnityEngine;
 
 namespace Cjayride.EpicLootAdjustments
 {
-    [BepInPlugin("com.cjayride.epiclootadjustments", "EpicLootAdjustments", "1.5.1")]
+    [BepInPlugin("com.cjayride.epiclootadjustments", "EpicLootAdjustments", "1.5.2")]
     [BepInDependency("randyknapp.mods.epicloot")]
     public class Plugin : BaseUnityPlugin
     {

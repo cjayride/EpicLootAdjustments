@@ -9,7 +9,7 @@ Fix the FPS collapse (90 → ~10) caused by per-frame `AccessTools.TypeByName("C
 - No `TypeByName` / field lookup on every `Menu.Update` frame.
 - If Quick Config is missing (Epic Loot 0.15.4), skip the hide path and log once.
 - Hide still works when the broker type exists (`HideEpicLootConfigButton = true`).
-- Release 1.5.1 builds; Thunderstore zip in `/dist`.
+- Release 1.5.2 builds; Thunderstore zip in `/dist`.
 
 ## Status
 Completed (code + package). In-game FPS check still needs a client launch with 1.5.1 installed.

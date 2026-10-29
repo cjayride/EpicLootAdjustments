@@ -1,3 +1,6 @@
+## 1.5.2
+- Version bump.
+
 ## 1.5.1
 - **FIX:** Stopped a severe FPS drop caused by looking up Epic Loot's Quick Config type every `Menu.Update` frame and Harmony-logging when that type is missing in Epic Loot **0.15.4**.
 - Config-button hide now caches types once at startup, skips all menu work when Quick Config is absent, and only re-hides on pause-menu `Show`.
