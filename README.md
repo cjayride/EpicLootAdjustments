@@ -1,30 +1,82 @@
-# EpicLootAdjustments
+# ⚔️ EpicLootAdjustments
 
-Valheim BepInEx plugin that tunes Epic Loot for CJAYCRAFT progression:
+**Customize Epic Loot for CJAYCRAFT progression in Valheim.**
 
-1. **Zone loot filter** — Stops creatures from dropping gear (including Epic Loot rolls) whose recipe uses materials from a higher biome than the creature’s home zone. Optional exceptions from Drop That files (e.g. boss bonus tools).
-2. **Set ability audio & VFX** — Lowers legendary set ability volume and trims heavy particles (Ragnar frost cone, Berserker, etc.).
-3. **Hide config button** — Hides Epic Loot’s pause-menu “Mod Config” button by default.
+EpicLootAdjustments is a BepInEx plugin that balances loot progression, reduces heavy legendary set ability effects, and cleans up the Epic Loot interface.
 
-## Build
+## ✨ Features
 
-```powershell
-dotnet build Cjayride.CLCCLootPatch.csproj -c Release
-```
+### 🛡️ Zone-Based Loot Progression
 
-Output DLL:
+Prevents creatures from dropping gear that exceeds the material tier of their home biome.
 
-`bin\Release\net481\Cjayride.EpicLootAdjustments.dll`
+- Supports vanilla drops and Epic Loot magic item rolls.
+- Replaces over-tier weapons, armor, shields, tools, and ammunition with the highest-tier equivalent allowed for the creature's biome.
+- Checks food and trophies against biome progression.
+- Supports optional exceptions from Drop That configuration files, allowing specific creature/item combinations to bypass the zone restrictions.
+- Leaves materials such as ore and hides unaffected by gear-slot replacement logic.
+- Keeps fish unzoned so they can still drop in the Meadows.
 
-## Config
+**Biome progression:** Meadows → Black Forest → Swamp → Mountain/Ocean → Plains → Mistlands → Ashlands → Deep North.
 
-`BepInEx\config\com.cjayride.epiclootadjustments.cfg`
+### 🔊 Legendary Set Ability Effects
 
-## Dependencies
+Reduce the volume and visual intensity of legendary set abilities.
 
-- BepInEx
-- Epic Loot (soft dependency — loot filter and UI hooks need it)
+- **Audio volume:** Configurable, default `0.35`.
+- **Visual effects:** Optional smoke, particle, and visual reduction.
+- Includes effects associated with Ragnar, Berserker, Bulwark, Undying, and related set abilities.
+- Uses compatibility-safe optional hooks to accommodate Epic Loot API differences.
 
-## Thunderstore
+### 🖥️ Interface Customization
 
-Package folder: `Package/` (`icon.png`, `manifest.json`, built DLL under `plugins/` in the zip).
+Hide Epic Loot's pause-menu **Mod Config** button.
+
+- Enabled by default.
+- BepInEx configuration files remain available for adjusting settings.
+
+## ⚙️ Configuration
+
+Configuration file:
+
+`BepInEx/config/com.cjayride.epiclootadjustments.cfg`
+
+Available settings include:
+
+| Section | Setting | Default / Behavior |
+|---|---|---|
+| Exceptions | `DropThatAllowFiles` | `drop_that.character_drop.BossBonusTools.cfg` |
+| Set Abilities | Audio volume | `0.35` |
+| Set Abilities | Visual effect reduction | Optional |
+| Interface | `HideEpicLootConfigButton` | `true` |
+
+Settings can be changed through the configuration file or a compatible BepInEx configuration manager.
+
+## 📦 Requirements
+
+- **BepInEx** — Required.
+- **Epic Loot** — Soft dependency; required for Epic Loot loot-roll integration and interface hooks.
+
+## 📥 Installation
+
+1. Install BepInEx.
+2. Install Epic Loot to enable its integrations.
+3. Place `Cjayride.EpicLootAdjustments.dll` in your `BepInEx/plugins` folder.
+4. Launch Valheim and configure the plugin as needed.
+
+### Upgrading from CLCCLootPatch
+
+This plugin replaces the previous `Cjayride.CLCCLootPatch` name.
+
+- Remove the old `Cjayride.CLCCLootPatch.dll` from `BepInEx/plugins`.
+- The new plugin uses `com.cjayride.epiclootadjustments.cfg`.
+- The old `com.cjayride.clcllootpatch.cfg` configuration file is not loaded automatically.
+
+## 🧰 Build Information
+
+**Output DLL:**
+
+`bin/Release/net481/Cjayride.EpicLootAdjustments.dll`
+
+**Thunderstore package:** The `Package/` directory contains the package icon, manifest, and plugin files used to assemble the release.
+

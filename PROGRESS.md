@@ -1,5 +1,7 @@
 # EpicLootAdjustments Progress
 
+**Repository:** https://github.com/cjayride/EpicLootAdjustments
+
 ## Goal
 Stop creatures from dropping gear whose recipe uses materials from a later biome than the creature's own zone. EpicLoot magic drops are included. A swamp creature must not drop an item made with Ashlands materials.
 
