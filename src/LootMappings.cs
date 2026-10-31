@@ -150,11 +150,23 @@ namespace Cjayride.EpicLootAdjustments
             return ZoneTiers.TryGetValue(zone, out tier);
         }
 
+        public static bool IsShardStone(string prefabName)
+        {
+            return !string.IsNullOrEmpty(prefabName)
+                && prefabName.IndexOf("ShardStone", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
         public static int MaterialTier(string prefabName)
         {
             if (string.IsNullOrEmpty(prefabName))
             {
                 return 0;
+            }
+
+            int shard = ShardStoneTier(prefabName);
+            if (shard > 0)
+            {
+                return shard;
             }
 
             int tier = 0;
@@ -261,6 +273,53 @@ namespace Cjayride.EpicLootAdjustments
 
                 CreatureZones.Add(names[i], zone);
             }
+        }
+
+        static int ShardStoneTier(string name)
+        {
+            if (!IsShardStone(name))
+            {
+                return 0;
+            }
+
+            if (name.IndexOf("_Ancient_", StringComparison.OrdinalIgnoreCase) >= 0
+                || name.EndsWith("_Ancient_ShardStone", StringComparison.OrdinalIgnoreCase)
+                || name.IndexOf("Ancient_ShardStone", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return DeepNorthTier;
+            }
+
+            if (name.IndexOf("_Mythic_", StringComparison.OrdinalIgnoreCase) >= 0
+                || name.IndexOf("Mythic_ShardStone", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return MistlandsTier;
+            }
+
+            if (name.IndexOf("_Legendary_", StringComparison.OrdinalIgnoreCase) >= 0
+                || name.IndexOf("Legendary_ShardStone", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return MountainTier;
+            }
+
+            if (name.IndexOf("_Epic_", StringComparison.OrdinalIgnoreCase) >= 0
+                || name.IndexOf("Epic_ShardStone", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return SwampTier;
+            }
+
+            if (name.IndexOf("_Rare_", StringComparison.OrdinalIgnoreCase) >= 0
+                || name.IndexOf("Rare_ShardStone", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return BlackForestTier;
+            }
+
+            if (name.IndexOf("_Magic_", StringComparison.OrdinalIgnoreCase) >= 0
+                || name.IndexOf("Magic_ShardStone", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return MeadowsTier;
+            }
+
+            return DeepNorthTier;
         }
 
         static int SegmentTier(string name)

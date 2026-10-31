@@ -1,3 +1,12 @@
+## 1.5.5
+- **FIX:** This patch no longer rewrites drops into other items (no wood/flint/shardstone substitutions). Materials, shardstones, food, and trophies are left as rolled. Only over-tier weapons, armor, shields, tools, and ammo are removed.
+
+## 1.5.4
+- **FIX:** Over-tier shardstones are removed instead of turned into Magic stones. This patch never adds a shardstone that the creature did not already roll at a legal rarity.
+
+## 1.5.3
+- **FIX:** Shardstones are no longer treated as Meadows `Stone`. `ShardStone` names were split into `Stone`, so Ancient and boss-colored stones counted as tier 1 and could be swapped onto Greylings and Bjorn raids. Rarity now maps Magic → Meadows through Ancient → Deep North, and shardstones are never used as generic material replacements.
+
 ## 1.5.2
 - Version bump.
 

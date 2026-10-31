@@ -11,14 +11,9 @@ namespace Cjayride.EpicLootAdjustments
             public string Name;
             public int Tier;
             public ItemDrop.ItemData.ItemType Type;
-            public Skills.SkillType Skill;
         }
 
         static readonly Dictionary<string, ItemRecord> ByName = new Dictionary<string, ItemRecord>();
-        static readonly Dictionary<(ItemDrop.ItemData.ItemType, Skills.SkillType), List<ItemRecord>> ByKind =
-            new Dictionary<(ItemDrop.ItemData.ItemType, Skills.SkillType), List<ItemRecord>>();
-        static readonly Dictionary<ItemDrop.ItemData.ItemType, List<ItemRecord>> ByType =
-            new Dictionary<ItemDrop.ItemData.ItemType, List<ItemRecord>>();
         static readonly Dictionary<string, List<Recipe>> Recipes = new Dictionary<string, List<Recipe>>();
         static readonly Dictionary<string, int> TierCache = new Dictionary<string, int>();
         static readonly HashSet<string> Visiting = new HashSet<string>();
@@ -29,32 +24,50 @@ namespace Cjayride.EpicLootAdjustments
             _ready = false;
         }
 
-        public static bool NeedsReplacement(string itemName, int maxTier, out string replacement)
+        // True only for over-tier weapons, armor, shields, tools, and ammo.
+        // Never rewrites a drop into a different item. Materials, shardstones,
+        // food, and trophies are left exactly as rolled.
+        public static bool ShouldRemove(string itemName, int maxTier)
         {
-            replacement = null;
             itemName = LootMappings.Clean(itemName);
-            if (string.IsNullOrEmpty(itemName))
+            if (string.IsNullOrEmpty(itemName) || LootMappings.IsShardStone(itemName))
             {
                 return false;
             }
 
             EnsureBuilt();
             ItemRecord record = Find(itemName);
-            int tier = record != null ? record.Tier : LootMappings.MaterialTier(itemName);
-            if (tier <= maxTier)
+            if (record == null || !IsGear(record.Type))
             {
                 return false;
             }
 
-            replacement = record != null
-                ? Pick(record, maxTier) ?? FallbackFor(record.Type, maxTier)
-                : FallbackMaterial(maxTier);
-            if (replacement == itemName)
-            {
-                replacement = null;
-            }
+            return record.Tier > maxTier;
+        }
 
-            return true;
+        static bool IsGear(ItemDrop.ItemData.ItemType type)
+        {
+            switch (type)
+            {
+                case ItemDrop.ItemData.ItemType.OneHandedWeapon:
+                case ItemDrop.ItemData.ItemType.TwoHandedWeapon:
+                case ItemDrop.ItemData.ItemType.TwoHandedWeaponLeft:
+                case ItemDrop.ItemData.ItemType.Bow:
+                case ItemDrop.ItemData.ItemType.Shield:
+                case ItemDrop.ItemData.ItemType.Helmet:
+                case ItemDrop.ItemData.ItemType.Chest:
+                case ItemDrop.ItemData.ItemType.Legs:
+                case ItemDrop.ItemData.ItemType.Shoulder:
+                case ItemDrop.ItemData.ItemType.Utility:
+                case ItemDrop.ItemData.ItemType.Tool:
+                case ItemDrop.ItemData.ItemType.Torch:
+                case ItemDrop.ItemData.ItemType.Attach_Atgeir:
+                case ItemDrop.ItemData.ItemType.Ammo:
+                case ItemDrop.ItemData.ItemType.AmmoNonEquipable:
+                    return true;
+                default:
+                    return false;
+            }
         }
 
         static ItemRecord Find(string itemName)
@@ -104,8 +117,6 @@ namespace Cjayride.EpicLootAdjustments
         static void Build(ObjectDB db)
         {
             ByName.Clear();
-            ByKind.Clear();
-            ByType.Clear();
             Recipes.Clear();
             TierCache.Clear();
             Visiting.Clear();
@@ -171,30 +182,9 @@ namespace Cjayride.EpicLootAdjustments
             {
                 Name = name,
                 Type = shared.m_itemType,
-                Skill = shared.m_skillType,
                 Tier = ComputeTier(name)
             };
             ByName.Add(name, record);
-            if (record.Tier <= 0)
-            {
-                return record;
-            }
-
-            var kind = (record.Type, record.Skill);
-            if (!ByKind.TryGetValue(kind, out List<ItemRecord> kindList))
-            {
-                kindList = new List<ItemRecord>();
-                ByKind.Add(kind, kindList);
-            }
-
-            kindList.Add(record);
-            if (!ByType.TryGetValue(record.Type, out List<ItemRecord> typeList))
-            {
-                typeList = new List<ItemRecord>();
-                ByType.Add(record.Type, typeList);
-            }
-
-            typeList.Add(record);
             return record;
         }
 
@@ -247,107 +237,6 @@ namespace Cjayride.EpicLootAdjustments
             Visiting.Remove(name);
             TierCache[name] = tier;
             return tier;
-        }
-
-        static string Pick(ItemRecord source, int maxTier)
-        {
-            string best = PickFrom(ByKind.TryGetValue((source.Type, source.Skill), out List<ItemRecord> kind) ? kind : null, source.Name, maxTier);
-            if (best != null)
-            {
-                return best;
-            }
-
-            return PickFrom(ByType.TryGetValue(source.Type, out List<ItemRecord> type) ? type : null, source.Name, maxTier);
-        }
-
-        static string PickFrom(List<ItemRecord> candidates, string original, int maxTier)
-        {
-            if (candidates == null)
-            {
-                return null;
-            }
-
-            int bestTier = 0;
-            int count = 0;
-            for (int i = 0; i < candidates.Count; i++)
-            {
-                ItemRecord candidate = candidates[i];
-                if (candidate.Name == original || candidate.Tier <= 0 || candidate.Tier > maxTier)
-                {
-                    continue;
-                }
-
-                if (candidate.Tier > bestTier)
-                {
-                    bestTier = candidate.Tier;
-                    count = 1;
-                }
-                else if (candidate.Tier == bestTier)
-                {
-                    count++;
-                }
-            }
-
-            if (count == 0)
-            {
-                return null;
-            }
-
-            int choice = UnityEngine.Random.Range(0, count);
-            for (int i = 0; i < candidates.Count; i++)
-            {
-                ItemRecord candidate = candidates[i];
-                if (candidate.Name == original || candidate.Tier != bestTier || candidate.Tier > maxTier)
-                {
-                    continue;
-                }
-
-                if (choice == 0)
-                {
-                    return candidate.Name;
-                }
-
-                choice--;
-            }
-
-            return null;
-        }
-
-        static string FallbackFor(ItemDrop.ItemData.ItemType type, int maxTier)
-        {
-            if (type == ItemDrop.ItemData.ItemType.Consumable)
-            {
-                return FirstExisting(LootMappings.FallbackFood, maxTier) ?? FallbackMaterial(maxTier);
-            }
-
-            if (type == ItemDrop.ItemData.ItemType.Trophy)
-            {
-                return FirstExisting(LootMappings.FallbackTrophies, maxTier);
-            }
-
-            return FallbackMaterial(maxTier);
-        }
-
-        static string FallbackMaterial(int maxTier)
-        {
-            return FirstExisting(LootMappings.FallbackMaterials, maxTier);
-        }
-
-        static string FirstExisting(Func<int, string[]> listForTier, int maxTier)
-        {
-            for (int tier = maxTier; tier >= LootMappings.MeadowsTier; tier--)
-            {
-                string[] names = listForTier(tier);
-                for (int i = 0; i < names.Length; i++)
-                {
-                    if (ObjectDB.instance?.GetItemPrefab(names[i]) != null)
-                    {
-                        return names[i];
-                    }
-                }
-            }
-
-            return null;
         }
     }
 }

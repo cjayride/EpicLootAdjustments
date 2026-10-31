@@ -11,11 +11,9 @@ EpicLootAdjustments is a BepInEx plugin that balances loot progression, reduces 
 Prevents creatures from dropping gear that exceeds the material tier of their home biome.
 
 - Supports vanilla drops and Epic Loot magic item rolls.
-- Replaces over-tier weapons, armor, shields, tools, and ammunition with the highest-tier equivalent allowed for the creature's biome.
-- Checks food and trophies against biome progression.
+- Removes over-tier weapons, armor, shields, tools, and ammunition. Drops are never rewritten into a different item.
+- Materials, shardstones, food, and trophies are left exactly as Drop That / Epic Loot rolled them.
 - Supports optional exceptions from Drop That configuration files, allowing specific creature/item combinations to bypass the zone restrictions.
-- Leaves materials such as ore and hides unaffected by gear-slot replacement logic.
-- Keeps fish unzoned so they can still drop in the Meadows.
 
 **Biome progression:** Meadows → Black Forest → Swamp → Mountain/Ocean → Plains → Mistlands → Ashlands → Deep North.
 

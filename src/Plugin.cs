@@ -8,7 +8,7 @@ using UnityEngine;
 
 namespace Cjayride.EpicLootAdjustments
 {
-    [BepInPlugin("com.cjayride.epiclootadjustments", "EpicLootAdjustments", "1.5.2")]
+    [BepInPlugin("com.cjayride.epiclootadjustments", "EpicLootAdjustments", "1.5.5")]
     [BepInDependency("randyknapp.mods.epicloot")]
     public class Plugin : BaseUnityPlugin
     {
@@ -81,21 +81,13 @@ namespace Cjayride.EpicLootAdjustments
                     continue;
                 }
 
-                if (!ItemTierIndex.NeedsReplacement(prefab.name, maxTier, out string replacementName))
+                if (!ItemTierIndex.ShouldRemove(prefab.name, maxTier))
                 {
                     continue;
                 }
 
-                GameObject replacement = string.IsNullOrEmpty(replacementName) ? null : ObjectDB.instance?.GetItemPrefab(replacementName);
-                if (replacement == null)
-                {
-                    Plugin.Log.LogInfo(creature + " (" + zone + ") blocked " + LootMappings.Clean(prefab.name));
-                    __result[i] = new KeyValuePair<GameObject, int>(prefab, 0);
-                    continue;
-                }
-
-                Plugin.Log.LogInfo(creature + " (" + zone + ") " + LootMappings.Clean(prefab.name) + " -> " + replacementName);
-                __result[i] = new KeyValuePair<GameObject, int>(replacement, __result[i].Value);
+                Plugin.Log.LogInfo(creature + " (" + zone + ") blocked " + LootMappings.Clean(prefab.name));
+                __result[i] = new KeyValuePair<GameObject, int>(prefab, 0);
             }
         }
     }
@@ -142,7 +134,7 @@ namespace Cjayride.EpicLootAdjustments
                 prefix: new HarmonyMethod(typeof(EpicLootPatches), nameof(BeginDrop)),
                 finalizer: new HarmonyMethod(typeof(EpicLootPatches), nameof(EndDrop)));
             harmony.Patch(gated, postfix: new HarmonyMethod(typeof(EpicLootPatches), nameof(FilterGatedItem)));
-            Plugin.Log.LogInfo("EpicLoot drops will stay in the creature's zone.");
+            Plugin.Log.LogInfo("EpicLoot over-tier gear will be removed. Drops are not rewritten.");
         }
 
         public static void BeginDrop(string objectName)
@@ -169,24 +161,17 @@ namespace Cjayride.EpicLootAdjustments
 
             try
             {
-                if (!ItemTierIndex.NeedsReplacement(__result, _maxTier, out string replacement))
+                if (!ItemTierIndex.ShouldRemove(__result, _maxTier))
                 {
                     return;
                 }
 
-                if (string.IsNullOrEmpty(replacement))
-                {
-                    Plugin.Log.LogInfo(_creature + " (" + _zone + ") blocked " + __result);
-                    __result = "";
-                    return;
-                }
-
-                Plugin.Log.LogInfo(_creature + " (" + _zone + ") " + __result + " -> " + replacement);
-                __result = replacement;
+                Plugin.Log.LogInfo(_creature + " (" + _zone + ") blocked " + __result);
+                __result = "";
             }
             catch (Exception ex)
             {
-                Plugin.Log.LogWarning("Failed to replace " + __result + " from " + _creature + ": " + ex.Message);
+                Plugin.Log.LogWarning("Failed to filter " + __result + " from " + _creature + ": " + ex.Message);
             }
         }
     }
