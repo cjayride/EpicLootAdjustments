@@ -1,3 +1,6 @@
+## 1.5.6
+- **NEW:** **Interface / HideEpicLootOutdatedConfigPrompt** (default **true**) — suppresses Epic Loot’s main-menu “Outdated Configs” prompt and auto-records a decline so modpack JSON is not replaced.
+
 ## 1.5.5
 - **FIX:** This patch no longer rewrites drops into other items (no wood/flint/shardstone substitutions). Materials, shardstones, food, and trophies are left as rolled. Only over-tier weapons, armor, shields, tools, and ammo are removed.
 

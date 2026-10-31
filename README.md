@@ -47,6 +47,7 @@ Available settings include:
 | Set Abilities | Audio volume | `0.35` |
 | Set Abilities | Visual effect reduction | Optional |
 | Interface | `HideEpicLootConfigButton` | `true` |
+| Interface | `HideEpicLootOutdatedConfigPrompt` | `true` |
 
 Settings can be changed through the configuration file or a compatible BepInEx configuration manager.
 

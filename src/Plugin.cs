@@ -8,7 +8,7 @@ using UnityEngine;
 
 namespace Cjayride.EpicLootAdjustments
 {
-    [BepInPlugin("com.cjayride.epiclootadjustments", "EpicLootAdjustments", "1.5.5")]
+    [BepInPlugin("com.cjayride.epiclootadjustments", "EpicLootAdjustments", "1.5.6")]
     [BepInDependency("randyknapp.mods.epicloot")]
     public class Plugin : BaseUnityPlugin
     {
@@ -21,11 +21,13 @@ namespace Cjayride.EpicLootAdjustments
             SetFx.Bind(Config);
             DropThatAllowList.Bind(Config);
             ConfigButtonHide.Bind(Config);
+            OutdatedConfigHide.Bind(Config);
             var harmony = new Harmony("com.cjayride.epiclootadjustments");
             harmony.PatchAll();
             EpicLootPatches.TryPatch(harmony);
             SetFx.TryPatch(harmony);
             ConfigButtonHide.TryPatch(harmony);
+            OutdatedConfigHide.TryPatch(harmony);
             IsInitialized = true;
             Log.LogInfo("Ready. Mapped " + LootMappings.CreatureZones.Count + " creatures.");
         }
