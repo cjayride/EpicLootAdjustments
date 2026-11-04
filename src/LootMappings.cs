@@ -34,6 +34,13 @@ namespace Cjayride.EpicLootAdjustments
 
         static readonly List<KeyValuePair<string, int>> Tokens = new List<KeyValuePair<string, int>>();
 
+        // Drop and effect names repeat constantly, so the parsed results are cached.
+        // Caps keep memory flat: past the cap the code falls back to the original
+        // (slower, allocation-heavy) path instead of growing without bound.
+        const int CacheCap = 4096;
+        static readonly Dictionary<string, string> CleanCache = new Dictionary<string, string>(StringComparer.Ordinal);
+        static readonly Dictionary<string, int> MaterialTierCache = new Dictionary<string, int>(StringComparer.Ordinal);
+
         static LootMappings()
         {
             AddMaterials(MeadowsTier, "Wood", "Stone", "Flint", "Resin", "LeatherScraps", "DeerHide", "HardAntler", "Coal", "Feathers");
@@ -163,6 +170,22 @@ namespace Cjayride.EpicLootAdjustments
                 return 0;
             }
 
+            if (MaterialTierCache.TryGetValue(prefabName, out int cachedTier))
+            {
+                return cachedTier;
+            }
+
+            int tier = ComputeMaterialTier(prefabName);
+            if (MaterialTierCache.Count < CacheCap)
+            {
+                MaterialTierCache[prefabName] = tier;
+            }
+
+            return tier;
+        }
+
+        static int ComputeMaterialTier(string prefabName)
+        {
             int shard = ShardStoneTier(prefabName);
             if (shard > 0)
             {
@@ -245,10 +268,31 @@ namespace Cjayride.EpicLootAdjustments
                 return name;
             }
 
+            if (CleanCache.TryGetValue(name, out string cleaned))
+            {
+                return cleaned;
+            }
+
+            string result = ComputeClean(name);
+            if (CleanCache.Count < CacheCap)
+            {
+                CleanCache[name] = result;
+            }
+
+            return result;
+        }
+
+        static string ComputeClean(string name)
+        {
             int clone = name.IndexOf("(Clone)", StringComparison.Ordinal);
             if (clone >= 0)
             {
                 name = name.Remove(clone);
+            }
+
+            if (name.Length == 0 || (name[0] != ' ' && name[name.Length - 1] != ' '))
+            {
+                return name;
             }
 
             return name.Trim();

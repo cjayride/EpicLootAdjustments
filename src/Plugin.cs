@@ -2,22 +2,29 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using BepInEx;
+using BepInEx.Configuration;
 using BepInEx.Logging;
 using HarmonyLib;
 using UnityEngine;
 
 namespace Cjayride.EpicLootAdjustments
 {
-    [BepInPlugin("com.cjayride.epiclootadjustments", "EpicLootAdjustments", "1.5.6")]
+    [BepInPlugin("com.cjayride.epiclootadjustments", "EpicLootAdjustments", "1.5.7")]
     [BepInDependency("randyknapp.mods.epicloot")]
     public class Plugin : BaseUnityPlugin
     {
         internal static ManualLogSource Log;
         public static bool IsInitialized;
+        public static ConfigEntry<bool> LogBlockedDrops;
 
         public void Awake()
         {
             Log = Logger;
+            LogBlockedDrops = Config.Bind(
+                "Logging",
+                "LogBlockedDrops",
+                true,
+                "Log each blocked over-tier drop. Turn off during large raids to avoid writing one log line per blocked item.");
             SetFx.Bind(Config);
             DropThatAllowList.Bind(Config);
             ConfigButtonHide.Bind(Config);
@@ -39,6 +46,7 @@ namespace Cjayride.EpicLootAdjustments
         static void Postfix()
         {
             ItemTierIndex.Invalidate();
+            ItemTierIndex.Warm();
             SetFx.OnEpicPrefabsReady();
         }
     }
@@ -49,6 +57,7 @@ namespace Cjayride.EpicLootAdjustments
         static void Postfix()
         {
             ItemTierIndex.Invalidate();
+            ItemTierIndex.Warm();
             SetFx.OnEpicPrefabsReady();
         }
     }
@@ -88,7 +97,11 @@ namespace Cjayride.EpicLootAdjustments
                     continue;
                 }
 
-                Plugin.Log.LogInfo(creature + " (" + zone + ") blocked " + LootMappings.Clean(prefab.name));
+                if (Plugin.LogBlockedDrops == null || Plugin.LogBlockedDrops.Value)
+                {
+                    Plugin.Log.LogInfo(creature + " (" + zone + ") blocked " + LootMappings.Clean(prefab.name));
+                }
+
                 __result[i] = new KeyValuePair<GameObject, int>(prefab, 0);
             }
         }
@@ -168,7 +181,11 @@ namespace Cjayride.EpicLootAdjustments
                     return;
                 }
 
-                Plugin.Log.LogInfo(_creature + " (" + _zone + ") blocked " + __result);
+                if (Plugin.LogBlockedDrops == null || Plugin.LogBlockedDrops.Value)
+                {
+                    Plugin.Log.LogInfo(_creature + " (" + _zone + ") blocked " + __result);
+                }
+
                 __result = "";
             }
             catch (Exception ex)

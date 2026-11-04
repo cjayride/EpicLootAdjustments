@@ -1,3 +1,11 @@
+## 1.5.7
+- **PERF:** Verified against the latest Valheim build (Unity 6000.0.75f1, Steam build 26249040) and Epic Loot 0.15.4 – 0.15.6. All patch targets confirmed present in the installed game and mod assemblies.
+- **PERF:** `ZSFX.Play` no longer walks the transform hierarchy and runs 30+ case-insensitive name searches on **every sound in the game**. Each emitter is resolved once and cached, so non-set sounds are a single dictionary lookup.
+- **PERF:** Set-ability effects are applied without allocating component arrays (reused `List<T>` buffers), and all scans are skipped entirely when volume is 1 and no visual options are enabled.
+- **PERF:** Item/drop name parsing (`(Clone)` strip, trim, material-tier matching) is memoized, and the drop filter now caches items with no indexed data instead of re-scanning the whole `ObjectDB` item list on every drop.
+- **PERF:** The item tier index is built when the world's `ObjectDB` loads, removing the frame spike on the first creature kill.
+- **NEW:** `Logging / LogBlockedDrops` (default `true`) — turns off the one-log-line-per-blocked-item output during large raids.
+
 ## 1.5.6
 - **NEW:** **Interface / HideEpicLootOutdatedConfigPrompt** (default **true**) — suppresses Epic Loot’s main-menu “Outdated Configs” prompt and auto-records a decline so modpack JSON is not replaced.
 

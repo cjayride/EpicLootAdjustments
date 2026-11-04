@@ -48,6 +48,7 @@ Available settings include:
 | Set Abilities | Visual effect reduction | Optional |
 | Interface | `HideEpicLootConfigButton` | `true` |
 | Interface | `HideEpicLootOutdatedConfigPrompt` | `true` |
+| Logging | `LogBlockedDrops` | `true` |
 
 Settings can be changed through the configuration file or a compatible BepInEx configuration manager.
 
@@ -78,4 +79,13 @@ This plugin replaces the previous `Cjayride.CLCCLootPatch` name.
 `bin/Release/net481/Cjayride.EpicLootAdjustments.dll`
 
 **Thunderstore package:** The `Package/` directory contains the package icon, manifest, and plugin files used to assemble the release.
+
+## ⚡ Performance
+
+The plugin is designed to stay off the game's hot paths:
+
+- Sound effects (`ZSFX.Play`) resolve each emitter once and cache the result, so ordinary sounds cost a single lookup.
+- Set-ability effects are processed with reused buffers, so applying them allocates no component arrays.
+- Item and creature name lookups are memoized, and the item tier index is built when the world loads instead of during combat.
+- Drop filtering writes no log lines by default during raids beyond the configured `LogBlockedDrops` setting.
 

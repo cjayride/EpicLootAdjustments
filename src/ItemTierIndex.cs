@@ -17,11 +17,23 @@ namespace Cjayride.EpicLootAdjustments
         static readonly Dictionary<string, List<Recipe>> Recipes = new Dictionary<string, List<Recipe>>();
         static readonly Dictionary<string, int> TierCache = new Dictionary<string, int>();
         static readonly HashSet<string> Visiting = new HashSet<string>();
+        // Names confirmed to have no indexed item data. Without this, every drop of an
+        // unindexed item repeats ObjectDB.GetItemPrefab's linear scan plus a GetComponent.
+        static readonly HashSet<string> Missing = new HashSet<string>(System.StringComparer.Ordinal);
+        const int MissingCap = 4096;
         static bool _ready;
 
         public static void Invalidate()
         {
             _ready = false;
+            Missing.Clear();
+        }
+
+        // Builds the index up front (ObjectDB Awake) so the first creature kill in a
+        // fight does not pay for the whole item/recipe scan.
+        public static void Warm()
+        {
+            EnsureBuilt();
         }
 
         // True only for over-tier weapons, armor, shields, tools, and ammo.
@@ -77,13 +89,29 @@ namespace Cjayride.EpicLootAdjustments
                 return record;
             }
 
-            GameObject prefab = ObjectDB.instance?.GetItemPrefab(itemName);
-            if (prefab == null)
+            if (Missing.Contains(itemName))
             {
                 return null;
             }
 
-            return AddPrefab(prefab);
+            GameObject prefab = ObjectDB.instance?.GetItemPrefab(itemName);
+            if (prefab == null)
+            {
+                if (Missing.Count < MissingCap)
+                {
+                    Missing.Add(itemName);
+                }
+
+                return null;
+            }
+
+            ItemRecord added = AddPrefab(prefab);
+            if (added == null && Missing.Count < MissingCap)
+            {
+                Missing.Add(itemName);
+            }
+
+            return added;
         }
 
         static bool EnsureBuilt()

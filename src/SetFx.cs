@@ -9,7 +9,21 @@ namespace Cjayride.EpicLootAdjustments
 {
     public static class SetFx
     {
+        // Prefabs/asset objects and spawned instances share one "already scaled" set,
+        // so an effect is never scaled twice. Permanent objects are kept; when the cap
+        // is hit the instance cache is cleared (instance ids recycle, asset ids do not).
         static readonly HashSet<int> Touched = new HashSet<int>();
+        const int TouchedCap = 8192;
+
+        // ZSFX.Play fires for every sound in the game, so each emitter is resolved once:
+        // matched ancestor transform, or "not a set effect" (then the prefix does nothing).
+        static readonly Dictionary<int, Transform> ZsfxRoots = new Dictionary<int, Transform>();
+        static readonly HashSet<int> ZsfxIgnored = new HashSet<int>();
+        const int ZsfxCacheCap = 4096;
+
+        static readonly Dictionary<string, bool> NameMatches = new Dictionary<string, bool>(StringComparer.Ordinal);
+        const int NameCacheCap = 2048;
+
         static readonly HashSet<string> AssetNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         static readonly string[] NameHints =
         {
@@ -21,6 +35,15 @@ namespace Cjayride.EpicLootAdjustments
             "Gullveig", "EitrInfusion", "Quarry", "HelHarvest", "PiercingBolt",
             "ConjuredArrow", "Frostwalker", "LifeSiphon", "NineSteps"
         };
+
+        static readonly string[] SmokeHints = { "smoke", "mist", "fog", "dust", "steam", "puff", "cloud" };
+
+        // Reused so each applied effect allocates no component arrays.
+        static readonly List<ZSFX> ZsfxBuffer = new List<ZSFX>();
+        static readonly List<AudioSource> SourceBuffer = new List<AudioSource>();
+        static readonly List<ParticleSystem> ParticleBuffer = new List<ParticleSystem>();
+        static readonly List<TrailRenderer> TrailBuffer = new List<TrailRenderer>();
+        static readonly List<Light> LightBuffer = new List<Light>();
 
         public static ConfigEntry<float> Volume;
         public static ConfigEntry<bool> DisableSmoke;
@@ -129,53 +152,147 @@ namespace Cjayride.EpicLootAdjustments
                 return;
             }
 
+            float volume = Volume != null ? Mathf.Clamp01(Volume.Value) : 0.35f;
+            bool visuals = DisableVisuals != null && DisableVisuals.Value;
+            bool smoke = DisableSmoke != null && DisableSmoke.Value;
+            bool reduce = ReduceParticles != null && ReduceParticles.Value;
+            bool scaleAudio = volume < 1f;
+
             int id = root.GetInstanceID();
-            if (!Touched.Add(id))
+
+            // Each object is scaled exactly once (original behaviour): multiplying
+            // volumes twice would halve the volume a second time.
+            if (!MarkTouched(id))
             {
                 return;
             }
 
-            float volume = Volume != null ? Mathf.Clamp01(Volume.Value) : 0.35f;
-            ZSFX[] sounds = root.GetComponentsInChildren<ZSFX>(true);
-            for (int i = 0; i < sounds.Length; i++)
+            // Nothing to change: skip every component scan on this effect.
+            if (!scaleAudio && !visuals && !smoke && !reduce)
             {
-                ScaleSound(sounds[i], volume);
+                return;
             }
 
-            AudioSource[] sources = root.GetComponentsInChildren<AudioSource>(true);
-            for (int i = 0; i < sources.Length; i++)
+            if (scaleAudio)
             {
-                if (sources[i] != null)
+                ZsfxBuffer.Clear();
+                root.GetComponentsInChildren(true, ZsfxBuffer);
+                for (int i = 0; i < ZsfxBuffer.Count; i++)
                 {
-                    sources[i].volume *= volume;
+                    ScaleSound(ZsfxBuffer[i], volume);
+                }
+
+                SourceBuffer.Clear();
+                root.GetComponentsInChildren(true, SourceBuffer);
+                for (int i = 0; i < SourceBuffer.Count; i++)
+                {
+                    if (SourceBuffer[i] != null)
+                    {
+                        SourceBuffer[i].volume *= volume;
+                    }
                 }
             }
 
-            ParticleSystem[] particles = root.GetComponentsInChildren<ParticleSystem>(true);
-            for (int i = 0; i < particles.Length; i++)
+            if (smoke || reduce || visuals)
             {
-                TrimParticles(particles[i]);
+                ParticleBuffer.Clear();
+                root.GetComponentsInChildren(true, ParticleBuffer);
+                for (int i = 0; i < ParticleBuffer.Count; i++)
+                {
+                    TrimParticles(ParticleBuffer[i], smoke, reduce, visuals);
+                }
             }
 
-            if (DisableVisuals != null && DisableVisuals.Value)
+            if (visuals)
             {
-                TrailRenderer[] trails = root.GetComponentsInChildren<TrailRenderer>(true);
-                for (int i = 0; i < trails.Length; i++)
+                TrailBuffer.Clear();
+                root.GetComponentsInChildren(true, TrailBuffer);
+                for (int i = 0; i < TrailBuffer.Count; i++)
                 {
-                    if (trails[i] != null)
+                    if (TrailBuffer[i] != null)
                     {
-                        trails[i].enabled = false;
+                        TrailBuffer[i].enabled = false;
                     }
                 }
 
-                Light[] lights = root.GetComponentsInChildren<Light>(true);
-                for (int i = 0; i < lights.Length; i++)
+                LightBuffer.Clear();
+                root.GetComponentsInChildren(true, LightBuffer);
+                for (int i = 0; i < LightBuffer.Count; i++)
                 {
-                    if (lights[i] != null)
+                    if (LightBuffer[i] != null)
                     {
-                        lights[i].enabled = false;
+                        LightBuffer[i].enabled = false;
                     }
                 }
+            }
+        }
+
+        static bool MarkTouched(int id)
+        {
+            if (Touched.Contains(id))
+            {
+                return false;
+            }
+
+            if (Touched.Count >= TouchedCap)
+            {
+                Touched.Clear();
+            }
+
+            Touched.Add(id);
+            return true;
+        }
+
+        // Called by the ZSFX.Play prefix: resolves an emitter to its set-effect root once.
+        public static void ResolveAndApply(ZSFX sound)
+        {
+            int id = sound.GetInstanceID();
+            if (ZsfxIgnored.Contains(id))
+            {
+                return;
+            }
+
+            if (ZsfxRoots.TryGetValue(id, out Transform cached))
+            {
+                if (cached == null)
+                {
+                    // Unity instance ids recycle; the cached root was destroyed. Resolve fresh.
+                    ZsfxRoots.Remove(id);
+                }
+                else
+                {
+                    Apply(cached.gameObject, false);
+                    return;
+                }
+            }
+
+            Transform match = null;
+            Transform t = sound.transform;
+            while (t != null)
+            {
+                if (IsSetEffect(t.name))
+                {
+                    match = t;
+                    break;
+                }
+
+                t = t.parent;
+            }
+
+            if (ZsfxRoots.Count + ZsfxIgnored.Count >= ZsfxCacheCap)
+            {
+                ZsfxRoots.Clear();
+                ZsfxIgnored.Clear();
+            }
+
+            if (match != null)
+            {
+                ZsfxRoots[id] = match;
+                Apply(match.gameObject, false);
+            }
+            else
+            {
+                ZsfxIgnored.Add(id);
             }
         }
 
@@ -195,7 +312,7 @@ namespace Cjayride.EpicLootAdjustments
             }
         }
 
-        static void TrimParticles(ParticleSystem system)
+        static void TrimParticles(ParticleSystem system, bool smoke, bool reduce, bool visuals)
         {
             if (system == null)
             {
@@ -203,9 +320,8 @@ namespace Cjayride.EpicLootAdjustments
             }
 
             string name = system.gameObject.name ?? "";
-            bool smoke = ContainsAny(name, "smoke", "mist", "fog", "dust", "steam", "puff", "cloud");
-            bool kill = (DisableVisuals != null && DisableVisuals.Value)
-                || (smoke && DisableSmoke != null && DisableSmoke.Value);
+            bool isSmoke = ContainsAny(name, SmokeHints);
+            bool kill = visuals || (isSmoke && smoke);
             if (kill)
             {
                 system.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
@@ -215,7 +331,7 @@ namespace Cjayride.EpicLootAdjustments
                 return;
             }
 
-            if (ReduceParticles == null || !ReduceParticles.Value)
+            if (!reduce)
             {
                 return;
             }
@@ -235,18 +351,29 @@ namespace Cjayride.EpicLootAdjustments
 
         public static bool IsSetEffect(string name)
         {
+            if (string.IsNullOrEmpty(name))
+            {
+                return false;
+            }
+
             name = LootMappings.Clean(name);
             if (string.IsNullOrEmpty(name))
             {
                 return false;
             }
 
-            if (AssetNames.Contains(name))
+            if (NameMatches.TryGetValue(name, out bool known))
             {
-                return true;
+                return known;
             }
 
-            return MatchesHint(name);
+            bool match = AssetNames.Contains(name) || MatchesHint(name);
+            if (NameMatches.Count < NameCacheCap)
+            {
+                NameMatches[name] = match;
+            }
+
+            return match;
         }
 
         static bool MatchesHint(string name)
@@ -262,7 +389,7 @@ namespace Cjayride.EpicLootAdjustments
             return false;
         }
 
-        static bool ContainsAny(string name, params string[] parts)
+        static bool ContainsAny(string name, string[] parts)
         {
             for (int i = 0; i < parts.Length; i++)
             {
@@ -307,17 +434,7 @@ namespace Cjayride.EpicLootAdjustments
                 return;
             }
 
-            Transform t = __instance.transform;
-            while (t != null)
-            {
-                if (SetFx.IsSetEffect(t.name))
-                {
-                    SetFx.Apply(t.gameObject, false);
-                    return;
-                }
-
-                t = t.parent;
-            }
+            SetFx.ResolveAndApply(__instance);
         }
     }
 }
