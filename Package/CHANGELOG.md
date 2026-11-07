@@ -1,3 +1,7 @@
+## 1.5.8
+- **FIX:** Rebuild the item-material index when ObjectDB recipes are added after world load (WackyDatabase / Chaos Armor). `T0ChaosPlateArmor` ("Fell Suit" as an Epic Loot name) is silver + obsidian mountain plate; it was indexed with no recipe yet, treated as biome-legal, and could drop from The Elder.
+- **FIX:** Keep the killing creature in scope for nested Epic Loot rolls (`RollLootTableInternal` around `SpawnNormalItem`) so gated magic chests are still blocked.
+
 ## 1.5.7
 - **PERF:** Verified against the latest Valheim build (Unity 6000.0.75f1, Steam build 26249040) and Epic Loot 0.15.4 – 0.15.6. All patch targets confirmed present in the installed game and mod assemblies.
 - **PERF:** `ZSFX.Play` no longer walks the transform hierarchy and runs 30+ case-insensitive name searches on **every sound in the game**. Each emitter is resolved once and cached, so non-set sounds are a single dictionary lookup.

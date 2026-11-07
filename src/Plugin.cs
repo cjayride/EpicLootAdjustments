@@ -9,7 +9,7 @@ using UnityEngine;
 
 namespace Cjayride.EpicLootAdjustments
 {
-    [BepInPlugin("com.cjayride.epiclootadjustments", "EpicLootAdjustments", "1.5.7")]
+    [BepInPlugin("com.cjayride.epiclootadjustments", "EpicLootAdjustments", "1.5.8")]
     [BepInDependency("randyknapp.mods.epicloot")]
     public class Plugin : BaseUnityPlugin
     {
@@ -112,6 +112,7 @@ namespace Cjayride.EpicLootAdjustments
         static string _creature;
         static string _zone;
         static int _maxTier;
+        static int _rollDepth;
 
         public static void TryPatch(Harmony harmony)
         {
@@ -145,15 +146,45 @@ namespace Cjayride.EpicLootAdjustments
                 return;
             }
 
-            harmony.Patch(spawn,
-                prefix: new HarmonyMethod(typeof(EpicLootPatches), nameof(BeginDrop)),
-                finalizer: new HarmonyMethod(typeof(EpicLootPatches), nameof(EndDrop)));
+            var begin = new HarmonyMethod(typeof(EpicLootPatches), nameof(BeginDrop));
+            var end = new HarmonyMethod(typeof(EpicLootPatches), nameof(EndDrop));
+            harmony.Patch(spawn, prefix: begin, finalizer: end);
+
+            foreach (MethodInfo method in AccessTools.GetDeclaredMethods(roller))
+            {
+                if (method.Name != "RollLootTableInternal")
+                {
+                    continue;
+                }
+
+                bool hasObjectName = false;
+                ParameterInfo[] parameters = method.GetParameters();
+                for (int i = 0; i < parameters.Length; i++)
+                {
+                    if (parameters[i].Name == "objectName")
+                    {
+                        hasObjectName = true;
+                        break;
+                    }
+                }
+
+                if (hasObjectName)
+                {
+                    harmony.Patch(method, prefix: begin, finalizer: end);
+                }
+            }
+
             harmony.Patch(gated, postfix: new HarmonyMethod(typeof(EpicLootPatches), nameof(FilterGatedItem)));
             Plugin.Log.LogInfo("EpicLoot over-tier gear will be removed. Drops are not rewritten.");
         }
 
         public static void BeginDrop(string objectName)
         {
+            if (_rollDepth++ > 0)
+            {
+                return;
+            }
+
             _creature = null;
             if (!LootMappings.TryGetCreature(objectName, out _creature, out _zone, out _maxTier))
             {
@@ -163,6 +194,12 @@ namespace Cjayride.EpicLootAdjustments
 
         public static Exception EndDrop()
         {
+            if (--_rollDepth > 0)
+            {
+                return null;
+            }
+
+            _rollDepth = 0;
             _creature = null;
             return null;
         }

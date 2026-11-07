@@ -22,10 +22,14 @@ namespace Cjayride.EpicLootAdjustments
         static readonly HashSet<string> Missing = new HashSet<string>(System.StringComparer.Ordinal);
         const int MissingCap = 4096;
         static bool _ready;
+        static int _indexedRecipeCount;
+        static int _indexedItemCount;
 
         public static void Invalidate()
         {
             _ready = false;
+            _indexedRecipeCount = -1;
+            _indexedItemCount = -1;
             Missing.Clear();
         }
 
@@ -116,27 +120,33 @@ namespace Cjayride.EpicLootAdjustments
 
         static bool EnsureBuilt()
         {
-            if (_ready)
-            {
-                return true;
-            }
-
             ObjectDB db = ObjectDB.instance;
             if (db == null || db.m_items == null || db.m_items.Count == 0)
             {
                 return false;
             }
 
+            int recipeCount = db.m_recipes == null ? 0 : db.m_recipes.Count;
+            int itemCount = db.m_items.Count;
+            if (_ready && recipeCount == _indexedRecipeCount && itemCount == _indexedItemCount)
+            {
+                return true;
+            }
+
             try
             {
                 Build(db);
                 _ready = true;
-                Plugin.Log.LogInfo("Indexed " + ByName.Count + " items for zone checks.");
+                _indexedRecipeCount = recipeCount;
+                _indexedItemCount = itemCount;
+                Plugin.Log.LogInfo("Indexed " + ByName.Count + " items from " + recipeCount + " recipes for zone checks.");
                 return true;
             }
             catch (Exception ex)
             {
                 _ready = true;
+                _indexedRecipeCount = recipeCount;
+                _indexedItemCount = itemCount;
                 Plugin.Log.LogError("Failed to index item tiers: " + ex);
                 return false;
             }
