@@ -33,6 +33,14 @@ Hide Epic Loot's pause-menu **Mod Config** button.
 - Enabled by default.
 - BepInEx configuration files remain available for adjusting settings.
 
+### 💎 Shard Socket Override
+
+Epic Loot can refuse a shard whose effect already exists on the item (for example a +damage shard on a weapon that already rolled +damage), even though enchant rolls can stack different damage modifiers.
+
+- **`Shards / AllowAnyShardInSlot`** (default **true**) lets you socket a shard into any empty shard slot regardless of matching effects.
+- Unique and boss shard exclusivity is left as Epic Loot defines it.
+- Set the option to `false` to restore Epic Loot's duplicate-effect socket rules.
+
 ## ⚙️ Configuration
 
 Configuration file:
@@ -48,6 +56,7 @@ Available settings include:
 | Set Abilities | Visual effect reduction | Optional |
 | Interface | `HideEpicLootConfigButton` | `true` |
 | Interface | `HideEpicLootOutdatedConfigPrompt` | `true` |
+| Shards | `AllowAnyShardInSlot` | `true` |
 | Logging | `LogBlockedDrops` | `true` |
 
 Settings can be changed through the configuration file or a compatible BepInEx configuration manager.

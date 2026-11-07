@@ -9,7 +9,7 @@ using UnityEngine;
 
 namespace Cjayride.EpicLootAdjustments
 {
-    [BepInPlugin("com.cjayride.epiclootadjustments", "EpicLootAdjustments", "1.5.8")]
+    [BepInPlugin("com.cjayride.epiclootadjustments", "EpicLootAdjustments", "1.5.9")]
     [BepInDependency("randyknapp.mods.epicloot")]
     public class Plugin : BaseUnityPlugin
     {
@@ -29,12 +29,14 @@ namespace Cjayride.EpicLootAdjustments
             DropThatAllowList.Bind(Config);
             ConfigButtonHide.Bind(Config);
             OutdatedConfigHide.Bind(Config);
+            ShardSocketOverride.Bind(Config);
             var harmony = new Harmony("com.cjayride.epiclootadjustments");
             harmony.PatchAll();
             EpicLootPatches.TryPatch(harmony);
             SetFx.TryPatch(harmony);
             ConfigButtonHide.TryPatch(harmony);
             OutdatedConfigHide.TryPatch(harmony);
+            ShardSocketOverride.TryPatch(harmony);
             IsInitialized = true;
             Log.LogInfo("Ready. Mapped " + LootMappings.CreatureZones.Count + " creatures.");
         }

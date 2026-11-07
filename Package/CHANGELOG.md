@@ -1,3 +1,6 @@
+## 1.5.9
+- **NEW:** `Shards / AllowAnyShardInSlot` (default **true**) — socket a shard even when the item already has a matching magic effect (for example +damage). Enchant rolls already allow multiple damage types on one item; this override stops Epic Loot from blocking the same combination via shards. Unique/boss exclusivity is unchanged. Turn off to restore Epic Loot's duplicate-effect socket rules.
+
 ## 1.5.8
 - **FIX:** Rebuild the item-material index when ObjectDB recipes are added after world load (WackyDatabase / Chaos Armor). `T0ChaosPlateArmor` ("Fell Suit" as an Epic Loot name) is silver + obsidian mountain plate; it was indexed with no recipe yet, treated as biome-legal, and could drop from The Elder.
 - **FIX:** Keep the killing creature in scope for nested Epic Loot rolls (`RollLootTableInternal` around `SpawnNormalItem`) so gated magic chests are still blocked.
