@@ -1,3 +1,6 @@
+## 1.5.11
+- **FIX:** Socketing was still blocked when the shard's effect is in the same exclusive family as an existing enchant, not the same type. Example: Epic Light Blue Shardstone (`AddLightningDamage`) on a sledge that already rolled Physical Damage Dealt (`ModifyPhysicalDamage`). `AllowMatchingItemEffect` only bypasses ExclusiveSelf (same effect type). The override now also ignores `$mod_epicloot_socket_conflict` from `CanSocket` / `CanCoexist`. Duplicate same-color shards, unique/boss exclusivity, and item-type rules are unchanged.
+
 ## 1.5.10
 - **FIX:** 1.5.9 forced Epic Loot's `CheckDuplicateEffect` to false. That method returns **true when socketing is allowed**, so every shard drop failed (including SeneaLHudLayout's shard window). The override now only turns on `AllowMatchingItemEffect`, which is the real "item already has this enchant" gate.
 

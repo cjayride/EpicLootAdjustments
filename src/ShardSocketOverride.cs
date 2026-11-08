@@ -8,6 +8,7 @@ namespace Cjayride.EpicLootAdjustments
     public static class ShardSocketOverride
     {
         const string SocketManagerTypeName = "EpicLoot.ShardStones.ShardSocketManager";
+        const string ConflictReasonPrefix = "$mod_epicloot_socket_conflict";
 
         public static ConfigEntry<bool> AllowAnyShardInSlot;
 
@@ -17,7 +18,7 @@ namespace Cjayride.EpicLootAdjustments
                 "Shards",
                 "AllowAnyShardInSlot",
                 true,
-                "Allow socketing a shard even when the item already has that same magic effect from an enchant (for example +damage). Unique/boss exclusivity and empty-slot checks are unchanged.");
+                "Allow socketing a shard even when an existing enchant is in the same exclusive effect family (for example Imbue Lightning on a weapon that already has Physical Damage Dealt). Does not allow two copies of the same shardstone. Unique/boss exclusivity, item-type rules, and empty-slot checks are unchanged.");
         }
 
         public static void TryPatch(Harmony harmony)
@@ -29,10 +30,51 @@ namespace Cjayride.EpicLootAdjustments
                 return;
             }
 
+            PatchAllowMatching(harmony, manager);
+            PatchSocketResult(harmony, manager, "CanSocket");
+            PatchSocketResult(harmony, manager, "CanCoexist");
+
+            Plugin.Log.LogInfo(AllowAnyShardInSlot.Value
+                ? "EpicLoot shard slots ignore exclusive-effect conflicts with existing enchants."
+                : "EpicLoot shard exclusive-effect rules are unchanged.");
+        }
+
+        public static bool ForceAllowMatching(ref bool __result)
+        {
+            if (!Enabled())
+            {
+                return true;
+            }
+
+            __result = true;
+            return false;
+        }
+
+        public static void AfterSocketCheck(ref bool __result, ref string reason)
+        {
+            if (__result || !Enabled() || string.IsNullOrEmpty(reason))
+            {
+                return;
+            }
+
+            if (reason.StartsWith(ConflictReasonPrefix, StringComparison.Ordinal))
+            {
+                __result = true;
+                reason = null;
+            }
+        }
+
+        static bool Enabled()
+        {
+            return AllowAnyShardInSlot != null && AllowAnyShardInSlot.Value;
+        }
+
+        static void PatchAllowMatching(Harmony harmony, Type manager)
+        {
             MethodInfo method = AccessTools.Method(manager, "AllowMatchingItemEffect");
             if (method == null || method.ReturnType != typeof(bool))
             {
-                Plugin.Log.LogWarning("EpicLoot AllowMatchingItemEffect was not found. Shard slot override is skipped.");
+                Plugin.Log.LogWarning("EpicLoot AllowMatchingItemEffect was not found.");
                 return;
             }
 
@@ -43,23 +85,26 @@ namespace Cjayride.EpicLootAdjustments
             catch (Exception ex)
             {
                 Plugin.Log.LogWarning("Could not patch EpicLoot AllowMatchingItemEffect: " + ex.Message);
+            }
+        }
+
+        static void PatchSocketResult(Harmony harmony, Type manager, string methodName)
+        {
+            MethodInfo method = AccessTools.Method(manager, methodName);
+            if (method == null || method.ReturnType != typeof(bool))
+            {
+                Plugin.Log.LogWarning("EpicLoot " + methodName + " was not found for shard slot override.");
                 return;
             }
 
-            Plugin.Log.LogInfo(AllowAnyShardInSlot.Value
-                ? "EpicLoot shard slots accept shards that match an existing item effect."
-                : "EpicLoot shard duplicate-effect rules are unchanged.");
-        }
-
-        public static bool ForceAllowMatching(ref bool __result)
-        {
-            if (AllowAnyShardInSlot == null || !AllowAnyShardInSlot.Value)
+            try
             {
-                return true;
+                harmony.Patch(method, postfix: new HarmonyMethod(typeof(ShardSocketOverride), nameof(AfterSocketCheck)));
             }
-
-            __result = true;
-            return false;
+            catch (Exception ex)
+            {
+                Plugin.Log.LogWarning("Could not patch EpicLoot " + methodName + ": " + ex.Message);
+            }
         }
     }
 }

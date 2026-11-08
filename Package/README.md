@@ -35,11 +35,11 @@ Hide Epic Loot's pause-menu **Mod Config** button.
 
 ### 💎 Shard Socket Override
 
-Epic Loot can refuse a shard whose effect already exists on the item (for example a +damage shard on a weapon that already rolled +damage), even though enchant rolls can stack different damage modifiers.
+Epic Loot treats damage-style effects as one exclusive family. A rolled **Physical Damage Dealt** enchant blocks a Light Blue **Imbue Lightning** shard even though those are different damage types.
 
-- **`Shards / AllowAnyShardInSlot`** (default **true**) lets you socket a shard into any empty shard slot regardless of matching effects.
-- Unique and boss shard exclusivity is left as Epic Loot defines it.
-- Set the option to `false` to restore Epic Loot's duplicate-effect socket rules.
+- **`Shards / AllowAnyShardInSlot`** (default **true**) ignores that enchant-vs-shard exclusive-family conflict so the shard can go in an empty slot.
+- It does **not** allow two of the same shardstone, and unique/boss exclusivity is unchanged.
+- Set the option to `false` to restore Epic Loot's exclusive-effect socket rules.
 
 ## ⚙️ Configuration
 

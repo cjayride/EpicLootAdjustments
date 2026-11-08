@@ -1,25 +1,23 @@
 # EpicLootAdjustments Progress
 
 ## Goal
-Fix 1.5.9 blocking all shard socketing (SeneaLHudLayout and Epic Loot UI). Keep allowing a shard whose effect already exists as an item enchant.
+Let a Light Blue Imbue Lightning shard socket into a weapon that already rolled Physical Damage Dealt. Do not allow two of the same shardstone.
 
 ## Acceptance
-- Socketing works again for shards that do not collide with an existing enchant.
-- `AllowAnyShardInSlot` still lets a +damage shard go on an item that already rolled +damage.
-- Unique/boss exclusivity and empty-slot checks still apply.
+- Legendary Bronze Sledge with Physical Damage Dealt accepts Epic Light Blue Shardstone (Imbue Lightning 4%).
+- Duplicate same shardstones still blocked by Epic Loot.
+- Unique/boss exclusivity unchanged.
 
 ## Status
-Complete — v1.5.10 built and packaged. Not launched in-game this session.
+Complete — v1.5.11 built and packaged. Not launched in-game this session.
 
 ## Cause
-`ShardSocketManager.CheckDuplicateEffect` returns true when the check **passes**. 1.5.9 Harmony-forced it to false, so `CanSocket` always failed. SeneaLHudLayout hosts Epic Loot's own drop/add path, so it broke too.
-
-The intended gate is `AllowMatchingItemEffect` (Epic Loot config `AllowShardstoneDuplicateItemEffect`), used only when `CheckRequirements` fails with ExclusiveSelf against the same effect type.
+`AddLightningDamage` lists `ModifyPhysicalDamage` in `ExclusiveEffectTypes`. `CanSocket` fails with `RequirementFailure.ConflictingEffect`. `AllowMatchingItemEffect` only bypasses when the conflicting type **equals** the shard's own type (ExclusiveSelf). Lightning vs physical never hits that bypass.
 
 ## Files changed
-- `src/ShardSocketOverride.cs` — patch only `AllowMatchingItemEffect`.
-- Version 1.5.10 in plugin, csproj, manifest, changelogs.
+- `src/ShardSocketOverride.cs` — postfix `CanSocket` / `CanCoexist` to allow `$mod_epicloot_socket_conflict`.
+- Version 1.5.11.
 
 ## Next steps
-1. Build and package 1.5.10.
-2. Confirm shard window drop works in-game.
+1. Build and package.
+2. In-game: drop Light Blue shard onto the sledge empty slot.
