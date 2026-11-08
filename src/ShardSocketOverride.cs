@@ -17,7 +17,7 @@ namespace Cjayride.EpicLootAdjustments
                 "Shards",
                 "AllowAnyShardInSlot",
                 true,
-                "Allow socketing a shard even when the item already has a matching magic effect (for example +damage). Epic Loot normally blocks that even though enchant rolls can already stack different damage types. Unique/boss shard exclusivity is left unchanged. Items still need an empty shard slot.");
+                "Allow socketing a shard even when the item already has that same magic effect from an enchant (for example +damage). Unique/boss exclusivity and empty-slot checks are unchanged.");
         }
 
         public static void TryPatch(Harmony harmony)
@@ -29,66 +29,37 @@ namespace Cjayride.EpicLootAdjustments
                 return;
             }
 
-            PatchBoolResult(harmony, manager, "AllowMatchingItemEffect", true);
-            PatchBoolResult(harmony, manager, "CheckDuplicateEffect", false);
-            PatchBoolResult(harmony, manager, "CanCoexist", true);
+            MethodInfo method = AccessTools.Method(manager, "AllowMatchingItemEffect");
+            if (method == null || method.ReturnType != typeof(bool))
+            {
+                Plugin.Log.LogWarning("EpicLoot AllowMatchingItemEffect was not found. Shard slot override is skipped.");
+                return;
+            }
+
+            try
+            {
+                harmony.Patch(method, prefix: new HarmonyMethod(typeof(ShardSocketOverride), nameof(ForceAllowMatching)));
+            }
+            catch (Exception ex)
+            {
+                Plugin.Log.LogWarning("Could not patch EpicLoot AllowMatchingItemEffect: " + ex.Message);
+                return;
+            }
 
             Plugin.Log.LogInfo(AllowAnyShardInSlot.Value
                 ? "EpicLoot shard slots accept shards that match an existing item effect."
                 : "EpicLoot shard duplicate-effect rules are unchanged.");
         }
 
-        public static bool Enabled()
+        public static bool ForceAllowMatching(ref bool __result)
         {
-            return AllowAnyShardInSlot != null && AllowAnyShardInSlot.Value;
-        }
-
-        public static bool ForceTrue(ref bool __result)
-        {
-            if (!Enabled())
+            if (AllowAnyShardInSlot == null || !AllowAnyShardInSlot.Value)
             {
                 return true;
             }
 
             __result = true;
             return false;
-        }
-
-        public static bool ForceFalse(ref bool __result)
-        {
-            if (!Enabled())
-            {
-                return true;
-            }
-
-            __result = false;
-            return false;
-        }
-
-        static void PatchBoolResult(Harmony harmony, Type type, string methodName, bool forcedValue)
-        {
-            MethodInfo method = AccessTools.Method(type, methodName);
-            if (method == null)
-            {
-                Plugin.Log.LogWarning("EpicLoot method " + methodName + " was not found for shard slot override.");
-                return;
-            }
-
-            if (method.ReturnType != typeof(bool))
-            {
-                Plugin.Log.LogWarning("EpicLoot method " + methodName + " does not return bool; shard slot override skipped for it.");
-                return;
-            }
-
-            try
-            {
-                string prefix = forcedValue ? nameof(ForceTrue) : nameof(ForceFalse);
-                harmony.Patch(method, prefix: new HarmonyMethod(typeof(ShardSocketOverride), prefix));
-            }
-            catch (Exception ex)
-            {
-                Plugin.Log.LogWarning("Could not patch EpicLoot " + methodName + ": " + ex.Message);
-            }
         }
     }
 }

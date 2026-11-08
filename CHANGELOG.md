@@ -1,3 +1,6 @@
+## 1.5.10
+- **FIX:** 1.5.9 forced Epic Loot's `CheckDuplicateEffect` to false. That method returns **true when socketing is allowed**, so every shard drop failed (including SeneaLHudLayout's shard window). The override now only turns on `AllowMatchingItemEffect`, which is the real "item already has this enchant" gate.
+
 ## 1.5.9
 - **NEW:** `Shards / AllowAnyShardInSlot` (default **true**) — socket a shard even when the item already has a matching magic effect (for example +damage). Enchant rolls already allow multiple damage types on one item; this override stops Epic Loot from blocking the same combination via shards. Unique/boss exclusivity is unchanged. Turn off to restore Epic Loot's duplicate-effect socket rules.
 
