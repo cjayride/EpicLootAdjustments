@@ -58,7 +58,9 @@
 - When creating a release ZIP for Thunderstore:
   - Always place the final `.zip` inside the project’s `/dist` directory.
   - Always print the **full system file path** of the created `.zip`.
-  - Structure the zip correctly for Thunderstore (plugins folder, manifest, icon, README, etc. as required by the mod).
+  - Structure the zip for Thunderstore as a **flat archive root: NO subfolders.** Every file goes at the top level of the `.zip`: `manifest.json`, `icon.png`, `README.md`, `CHANGELOG.md`, and the mod `.dll`.
+  - Do **not** put the `.dll` under a `plugins/` (or any other) subfolder inside the zip. The root-level `.dll` is correct.
+  - Verify the archive after building it: list its entries and confirm no entry name contains `/` or `\`.
   - Do not leave the zip in the project root or other random locations.
 
 ## Windows Shell Rules (Critical)

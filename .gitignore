@@ -6,3 +6,4 @@ dist/
 .vs/
 Environment.props
 tools/
+backup-*/

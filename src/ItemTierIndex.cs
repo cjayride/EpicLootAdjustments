@@ -86,6 +86,37 @@ namespace Cjayride.EpicLootAdjustments
             }
         }
 
+        // Tier of an indexed item (0 when it has no indexed data). Callers that must
+        // compare an item against a creature's zone use this with ShouldRemove.
+        public static int ItemTier(string itemName)
+        {
+            itemName = LootMappings.Clean(itemName);
+            if (string.IsNullOrEmpty(itemName))
+            {
+                return 0;
+            }
+
+            EnsureBuilt();
+            ItemRecord record = Find(itemName);
+            return record == null ? 0 : record.Tier;
+        }
+
+        // The CJAYCRAFT bonus-tool exception is exactly the design in
+        // drop_that.character_drop.BossBonusTools.cfg: axe and pickaxe prefabs.
+        // Valheim types pickaxes as Tool and axes as weapons, so the shared
+        // progression-tool family is matched by prefab name.
+        public static bool IsTool(string itemName)
+        {
+            itemName = LootMappings.Clean(itemName);
+            if (string.IsNullOrEmpty(itemName))
+            {
+                return false;
+            }
+
+            return itemName.StartsWith("Axe", StringComparison.OrdinalIgnoreCase)
+                || itemName.StartsWith("Pickaxe", StringComparison.OrdinalIgnoreCase);
+        }
+
         static ItemRecord Find(string itemName)
         {
             if (ByName.TryGetValue(itemName, out ItemRecord record))

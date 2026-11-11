@@ -151,10 +151,47 @@ namespace Cjayride.EpicLootAdjustments
 
             if (!CreatureZones.TryGetValue(creature, out zone))
             {
-                return false;
+                // Sleeping / "nochest" / altar variants are the same creature with a
+                // different spawn template, so they inherit the mapped base's zone.
+                string baseName = StripSpawnSuffix(creature);
+                if (baseName != null && CreatureZones.TryGetValue(baseName, out zone))
+                {
+                    creature = baseName;
+                }
+                else
+                {
+                    return false;
+                }
             }
 
             return ZoneTiers.TryGetValue(zone, out tier);
+        }
+
+        // Suffixes Valheim and CJAYCRAFT content mods put on an otherwise-identical
+        // creature prefab, so the base creature's zone applies to the variant.
+        static readonly string[] SpawnSuffixes =
+        {
+            "_sleeping", "_NonSleeping", "_nochest", "_hatchling", "_calf", "_Calf",
+            "_cave", "_loose_stone", "_p3", "_Fader", "_Reto", "_Altar_New", "_Altar"
+        };
+
+        public static string StripSpawnSuffix(string name)
+        {
+            if (string.IsNullOrEmpty(name))
+            {
+                return null;
+            }
+
+            for (int i = 0; i < SpawnSuffixes.Length; i++)
+            {
+                string suffix = SpawnSuffixes[i];
+                if (name.Length > suffix.Length && name.EndsWith(suffix, StringComparison.Ordinal))
+                {
+                    return name.Substring(0, name.Length - suffix.Length);
+                }
+            }
+
+            return null;
         }
 
         public static bool IsShardStone(string prefabName)

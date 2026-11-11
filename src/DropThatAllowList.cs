@@ -12,6 +12,7 @@ namespace Cjayride.EpicLootAdjustments
             new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
 
         static ConfigEntry<string> FileNames;
+        static ConfigEntry<int> BonusTierStep;
         static bool _loaded;
 
         public static void Bind(ConfigFile config)
@@ -20,10 +21,18 @@ namespace Cjayride.EpicLootAdjustments
                 "Exceptions",
                 "DropThatAllowFiles",
                 "drop_that.character_drop.BossBonusTools.cfg",
-                "Comma-separated Drop That character-drop files in BepInEx/config. Items listed on a creature in these files are not downgraded, even if they are above that creature's zone.");
+                "Comma-separated Drop That character-drop files in BepInEx/config. Items listed on a creature in these files may exceed that creature's zone, within the limit below.");
+            BonusTierStep = config.Bind(
+                "Exceptions",
+                "BonusTierStep",
+                1,
+                "How many biome tiers above its own zone a whitelisted creature may drop. Default 1 matches the CJAYCRAFT bonus-tool design written in the file header (Bonemass in Swamp drops silver, Moder in Mountain drops blackmetal), and blocks the 2-tier entries: Eikthyr can no longer drop iron, The Elder can no longer drop silver. It applies only to tools (prefab names starting with Axe or Pickaxe); weapons, armour, shields and ammo are always capped at the creature's own zone, at any setting. Set to 0 for an absolute zone cap: the exceptions file then grants nothing above the creature's biome.");
         }
 
-        public static bool IsAllowed(string creature, string item)
+        // A whitelisted entry is honoured only inside the bounded progression step,
+        // so an entry added to a Drop That file can never hand a Meadows creature
+        // Deep North gear. Tools only: the CJAYCRAFT bonus-tool design.
+        public static bool IsAllowed(string creature, string item, int creatureTier, int itemTier)
         {
             EnsureLoaded();
             creature = LootMappings.Clean(creature);
@@ -33,7 +42,48 @@ namespace Cjayride.EpicLootAdjustments
                 return false;
             }
 
-            return Allowed.TryGetValue(creature, out HashSet<string> items) && items.Contains(item);
+            if (!Allowed.TryGetValue(creature, out HashSet<string> items) || !items.Contains(item))
+            {
+                return false;
+            }
+
+            int step = BonusTierStep != null ? BonusTierStep.Value : 1;
+
+            // An item at or below the creature's own zone is never a leak, so the
+            // allow-list does not need to vouch for it.
+            if (itemTier <= creatureTier)
+            {
+                return true;
+            }
+
+            if (step <= 0)
+            {
+                LogRefusal(creature, item, creatureTier, itemTier, "BonusTierStep is 0, so the zone cap is absolute");
+                return false;
+            }
+
+            if (!ItemTierIndex.IsTool(item))
+            {
+                LogRefusal(creature, item, creatureTier, itemTier, "not a tool");
+                return false;
+            }
+
+            if (itemTier > creatureTier + step)
+            {
+                LogRefusal(creature, item, creatureTier, itemTier, "more than " + step + " tier(s) above its zone");
+                return false;
+            }
+
+            return true;
+        }
+
+        static void LogRefusal(string creature, string item, int creatureTier, int itemTier, string reason)
+        {
+            if (Plugin.LogBlockedDrops == null || Plugin.LogBlockedDrops.Value)
+            {
+                Plugin.Log.LogInfo("Allow-list refused " + item + " (tier " + itemTier + ") for " + creature
+                    + " (tier " + creatureTier + "): " + reason + ".");
+            }
         }
 
         static void EnsureLoaded()
