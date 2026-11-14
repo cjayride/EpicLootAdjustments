@@ -45,6 +45,13 @@ Hide Epic Loot's pause-menu **Mod Config** button.
 - Enabled by default.
 - BepInEx configuration files remain available for adjusting settings.
 
+### 🏹 BetterArchery Quiver Enchants
+
+BetterArchery stores the quiver in a custom equipment slot. EpicLoot only totals magic effects from items still marked equipped in the bag, so quiver enchants and shards could be applied without ever showing on character stats.
+
+- **`Compatibility / EnableQuiverEnchants`** (default **true**) feeds the equipped quiver into EpicLoot's equipment list so those effects apply.
+- Set to `false` to restore stock EpicLoot behaviour.
+
 ### 💎 Shard Socket Override
 
 Epic Loot treats damage-style effects as one exclusive family. A rolled **Physical Damage Dealt** enchant blocks a Light Blue **Imbue Lightning** shard even though those are different damage types.
@@ -75,6 +82,7 @@ Available settings include:
 | Set Abilities | Visual effect reduction | Optional |
 | Interface | `HideEpicLootConfigButton` | `true` |
 | Interface | `HideEpicLootOutdatedConfigPrompt` | `true` |
+| Compatibility | `EnableQuiverEnchants` | `true` — BetterArchery quiver enchants apply to character stats |
 | Shards | `AllowAnyShardInSlot` | `true` |
 | Logging | `LogBlockedDrops` | `true` |
 

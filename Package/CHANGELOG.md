@@ -1,3 +1,6 @@
+## 1.5.16
+- **NEW:** `Compatibility / EnableQuiverEnchants` (default **true**) — EpicLoot now counts enchant effects on an equipped BetterArchery quiver toward character stats. Out of the box the quiver can be enchanted and take shards, but EpicLoot only reads vanilla equipped slots, so those effects never applied. Turn off to restore stock EpicLoot behaviour.
+
 ## 1.5.15
 - **NEW:** `Lucky Drops / RequireZoneBoss` (default **true**) — a jackpot item's own zone boss must be defeated first. Jackpot iron needs Bonemass dead, silver needs Moder, blackmetal needs Yagluth, and so on, checked against the game's world-global boss keys (the same `defeated_*` progression raids and Creature Level & Control read). This closes the last gap: a 5-star creature on a direct loot-table entry (like the pack's `Tier3Tools` → `PickaxeIron`) can no longer hand out gear the world has not unlocked yet. Set `false` for star-level-only gating.
 

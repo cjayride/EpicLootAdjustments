@@ -180,3 +180,41 @@ Complete: built, packaged, installed to both Gale profiles, pack configs/manifes
 - Git (git at `C:\Program Files\Git\cmd\git.exe`, not on PATH): commit `5aa747d` "Zone loot leak fix + Lucky Drops jackpots (v1.5.12-v1.5.15)" (18 files, +1224/-31; `backup-*/` added to `.gitignore`, no binaries committed), annotated tag `v1.5.15`, pushed `main` + tag to `github.com/cjayride/EpicLootAdjustments`.
 - 1.5.12-1.5.15 all shipped in this one commit (HEAD was v1.5.11).
 - Encoding incident: `Add-Content -Encoding UTF8` + `Get-Content -Raw` appended sections double-encoded non-ASCII through CP1252 (31 mojibake lines); a repair script (`_tmp_scan\fix-mojibake.ps1`, MatchEvaluator re-decode) restored them; first repair attempt truncated the file to 0 bytes on a type error and was restored via `git checkout -- PROGRESS.md`.
+
+---
+
+# 1.5.16 — BetterArchery quiver enchants
+
+## Goal
+EpicLoot enchants on BetterArchery quivers apply to character stats. Toggle on by default.
+
+## Acceptance
+- Default-on config `Compatibility / EnableQuiverEnchants`.
+- New DLL built; no pack configs edited, no zip, no GitHub.
+
+## Status
+Shipped: 1.5.16 Thunderstore zip, modpack **4.4.52** (client + server manifests, synced cfg). Not in-game tested this session.
+
+## Cause
+BetterArchery keeps the quiver in custom slot `"quiver"` (`Common.CustomSlotCreator`), not in `Inventory.GetEquippedItems()`. EpicLoot `PlayerExtensions.GetMagicEquipment` only sums `m_equipped` bag items, then `API.AppendProviderEquipment`. Enchanting/shards already work because those paths look at the item itself.
+
+## Files changed
+- `src/QuiverEnchants.cs` (new) — binds the toggle; registers EpicLoot `RegisterEquipmentProvider`; Harmony postfix fallback on `GetMagicEquipment`; reads `GetSlotItem(Humanoid, "quiver")` with dictionary fallback; invalidates EpicLoot effect cache after BetterArchery equip/unequip/sync/load.
+- `src/Plugin.cs` — bind + TryPatch, version 1.5.16.
+- csproj / Package manifest / CHANGELOG / README (project + Package copies). Pack configs **not** edited.
+
+## Commands run
+- `dotnet build -c Release` → succeeded, 0 warnings, 0 errors.
+- FileVersion `1.5.16.0`.
+
+## Output
+- DLL: `D:\AI-Agent-Projects\cjaycraft\Cjayride.CLCCLootPatch\bin\Release\net481\Cjayride.EpicLootAdjustments.dll`
+
+## Output (ship)
+- ZIP: `D:\AI-Agent-Projects\cjaycraft\Cjayride.CLCCLootPatch\dist\cjayride-EpicLootAdjustments-1.5.16.zip` (5 entries, `WITH-SEPARATOR=0`)
+- Pack configs: `beta_cjaycraft` + `beta_cjaycraft-server` `com.cjayride.epiclootadjustments.cfg` (+ `[Compatibility] EnableQuiverEnchants`)
+
+## Next steps
+1. Upload `cjayride-EpicLootAdjustments-1.5.16.zip` to Thunderstore (or install from zip in Gale).
+2. In-game: enchant a BetterArchery quiver, equip it, confirm stats; unequip and confirm they drop.
+3. Git tag/push when you want the repo release to match.
