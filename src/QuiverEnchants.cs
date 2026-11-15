@@ -7,13 +7,12 @@ using HarmonyLib;
 
 namespace Cjayride.EpicLootAdjustments
 {
-    // BetterArchery keeps the quiver in custom slot "quiver". EpicLoot only
-    // totals magic from Inventory.GetEquippedItems(), and BetterArchery's ZDO
-    // only stores the prefab name (BetterArchery.QuiverPrefab). Enchanting
-    // writes EpicLoot JSON onto the live ItemData; if that instance is not in
-    // the bag at save time, login reloads Ancient + sockets with an empty
-    // Effects list. This both feeds the slot into EpicLoot equipment and
-    // persists/restores the EpicLoot JSON on the player ZDO.
+    // BetterArchery keeps the quiver in custom slot "quiver" as ItemType.Misc.
+    // EpicLoot can still enchant Misc items (rarity + sockets) but magiceffects.json
+    // has no Misc rows, so the roll finishes Ancient with 0 effects. BetterArchery
+    // also loads after this plugin unless we depend on it, so the slot hook must
+    // retry after ObjectDB. This feeds the slot into EpicLoot equipment, treats
+    // the quiver as Utility/Shoulder for effect rolls, and persists EpicLoot JSON.
     public static class QuiverEnchants
     {
         const string ProviderId = "cjayride.betterarchery.quiver";
@@ -27,6 +26,10 @@ namespace Cjayride.EpicLootAdjustments
         static MethodInfo _initCustomData;
         static FieldInfo _slotNameField;
         static FieldInfo _slotDataField;
+        static FieldInfo _allowedItemTypes;
+        static Harmony _harmony;
+        static bool _applied;
+        static bool _loggedMissing;
         static bool _loggedRestore;
 
         public static ConfigEntry<bool> EnableQuiverEnchants;
@@ -42,15 +45,41 @@ namespace Cjayride.EpicLootAdjustments
 
         public static void TryPatch(Harmony harmony)
         {
+            _harmony = harmony;
+            ApplyIfReady();
+        }
+
+        public static void RetryIfNeeded()
+        {
+            ApplyIfReady();
+        }
+
+        static void ApplyIfReady()
+        {
+            if (_applied)
+            {
+                return;
+            }
+
             if (AccessTools.TypeByName("BetterArchery.Patches") == null
                 && AccessTools.TypeByName("Common.CustomSlotCreator") == null)
             {
-                Plugin.Log.LogInfo("BetterArchery was not found. Quiver enchant compatibility is skipped.");
+                if (!_loggedMissing)
+                {
+                    _loggedMissing = true;
+                    Plugin.Log.LogInfo("BetterArchery is not loaded yet. Quiver enchant compatibility will retry when ObjectDB loads.");
+                }
+                return;
+            }
+
+            if (_harmony == null)
+            {
                 return;
             }
 
             ResolveLookups();
-            if (!RegisterProvider() && !PatchGetMagicEquipment(harmony))
+            PatchEffectItemTypes(_harmony);
+            if (!RegisterProvider() && !PatchGetMagicEquipment(_harmony))
             {
                 Plugin.Log.LogWarning("Could not hook EpicLoot equipment for BetterArchery quivers.");
                 return;
@@ -58,15 +87,16 @@ namespace Cjayride.EpicLootAdjustments
 
             RegisterInventorySave();
             ListenForMagicChanges();
-            PatchBetterArcheryEquip(harmony, "EquipItemPostfix");
-            PatchBetterArcheryEquip(harmony, "UnequipItemPostfix");
-            PatchBetterArcheryEquip(harmony, "SyncQuiverFromZdo");
-            PatchBetterArcheryEquip(harmony, "InventoryLoadPostfix");
-            PatchInventorySave(harmony);
-            PatchPlayerSave(harmony);
+            PatchBetterArcheryEquip(_harmony, "EquipItemPostfix");
+            PatchBetterArcheryEquip(_harmony, "UnequipItemPostfix");
+            PatchBetterArcheryEquip(_harmony, "SyncQuiverFromZdo");
+            PatchBetterArcheryEquip(_harmony, "InventoryLoadPostfix");
+            PatchInventorySave(_harmony);
+            PatchPlayerSave(_harmony);
+            _applied = true;
 
             Plugin.Log.LogInfo(EnableQuiverEnchants.Value
-                ? "BetterArchery quiver enchants count toward character stats and are saved with the character."
+                ? "BetterArchery quiver enchants count toward character stats, roll Utility/Shoulder effects, and are saved with the character."
                 : "BetterArchery quiver enchants are left as EpicLoot ships them (not applied).");
         }
 
@@ -169,6 +199,12 @@ namespace Cjayride.EpicLootAdjustments
             {
                 _invalidateCache = AccessTools.Method(api, "InvalidatePlayerEffectCache", new[] { typeof(Player) });
                 _applyMagicJson = AccessTools.Method(api, "ApplyMagicItemJson", new[] { typeof(ItemDrop.ItemData), typeof(string) });
+            }
+
+            Type requirements = AccessTools.TypeByName("EpicLoot.MagicItemEffectRequirements");
+            if (requirements != null)
+            {
+                _allowedItemTypes = AccessTools.Field(requirements, "AllowedItemTypes");
             }
         }
 
@@ -298,6 +334,58 @@ namespace Cjayride.EpicLootAdjustments
             catch (Exception ex)
             {
                 Plugin.Log.LogWarning("Could not listen for EpicLoot magic-item changes: " + ex.Message);
+            }
+        }
+
+        static void PatchEffectItemTypes(Harmony harmony)
+        {
+            Type requirements = AccessTools.TypeByName("EpicLoot.MagicItemEffectRequirements");
+            MethodInfo method = requirements == null
+                ? null
+                : AccessTools.Method(requirements, "AllowByItemType", new[] { typeof(ItemDrop.ItemData) });
+            if (method == null)
+            {
+                Plugin.Log.LogWarning("Could not hook EpicLoot effect item types for quivers.");
+                return;
+            }
+
+            try
+            {
+                harmony.Patch(method, postfix: new HarmonyMethod(typeof(QuiverEnchants), nameof(AfterAllowByItemType)));
+            }
+            catch (Exception ex)
+            {
+                Plugin.Log.LogWarning("Could not patch EpicLoot AllowByItemType for quivers: " + ex.Message);
+            }
+        }
+
+        public static void AfterAllowByItemType(object __instance, ItemDrop.ItemData itemData, ref bool __result)
+        {
+            if (__result || !Enabled() || !IsQuiverItem(itemData) || _allowedItemTypes == null)
+            {
+                return;
+            }
+
+            try
+            {
+                object value = _allowedItemTypes.GetValue(__instance);
+                if (!(value is IList list) || list.Count == 0)
+                {
+                    return;
+                }
+
+                for (int i = 0; i < list.Count; i++)
+                {
+                    string type = list[i] as string;
+                    if (type == "Utility" || type == "Shoulder")
+                    {
+                        __result = true;
+                        return;
+                    }
+                }
+            }
+            catch
+            {
             }
         }
 

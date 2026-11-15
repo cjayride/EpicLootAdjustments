@@ -1,5 +1,8 @@
 ## 1.5.17
-- **FIX:** Enchanted BetterArchery quivers could log back in as **Ancient with 0 effects** (shard slots still shown). BetterArchery only writes the quiver prefab name to the player ZDO, so EpicLoot's effect list was not saved with the slot. Enchant JSON is now stored on the character and restored on load.
+- **FIX:** BetterArchery quivers could enchant to **Ancient with 0 effects** (sockets OK) because EpicLoot treats them as **Misc** and `magiceffects.json` has no Misc effects. Quivers now match **Utility / Shoulder** when rolling enchants.
+- **FIX:** Quiver compatibility loaded before Better Archery and was skipped; soft dependency + ObjectDB retry applies the slot hook reliably.
+- **FIX:** Enchant data is saved on the character ZDO and restored on login so rarity, effects, and sockets persist on the quiver slot.
+- **Note:** Quivers already stuck at Ancient with 0 effects need **disenchant → enchant again**; the empty roll cannot be reconstructed.
 
 ## 1.5.16
 - **NEW:** `Compatibility / EnableQuiverEnchants` (default **true**) — EpicLoot now counts enchant effects on an equipped BetterArchery quiver toward character stats. Out of the box the quiver can be enchanted and take shards, but EpicLoot only reads vanilla equipped slots, so those effects never applied. Turn off to restore stock EpicLoot behaviour.

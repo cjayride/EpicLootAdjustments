@@ -11,6 +11,7 @@ namespace Cjayride.EpicLootAdjustments
 {
     [BepInPlugin("com.cjayride.epiclootadjustments", "EpicLootAdjustments", "1.5.17")]
     [BepInDependency("randyknapp.mods.epicloot")]
+    [BepInDependency("ishid4.mods.betterarchery", BepInDependency.DependencyFlags.SoftDependency)]
     public class Plugin : BaseUnityPlugin
     {
         internal static ManualLogSource Log;
@@ -63,6 +64,7 @@ namespace Cjayride.EpicLootAdjustments
             ZoneContext.Invalidate();
             SetFx.OnEpicPrefabsReady();
             BulwarkTuning.Apply();
+            QuiverEnchants.RetryIfNeeded();
         }
     }
 
@@ -76,6 +78,7 @@ namespace Cjayride.EpicLootAdjustments
             ZoneContext.Invalidate();
             SetFx.OnEpicPrefabsReady();
             BulwarkTuning.Apply();
+            QuiverEnchants.RetryIfNeeded();
         }
     }
 
