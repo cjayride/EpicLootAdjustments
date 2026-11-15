@@ -49,7 +49,7 @@ Hide Epic Loot's pause-menu **Mod Config** button.
 
 BetterArchery stores the quiver in a custom equipment slot. EpicLoot only totals magic effects from items still marked equipped in the bag, so quiver enchants and shards could be applied without ever showing on character stats.
 
-- **`Compatibility / EnableQuiverEnchants`** (default **true**) feeds the equipped quiver into EpicLoot's equipment list so those effects apply.
+- **`Compatibility / EnableQuiverEnchants`** (default **true**) feeds the equipped quiver into EpicLoot's equipment list so those effects apply, and saves the enchant JSON on the character so it is still there after logout.
 - Set to `false` to restore stock EpicLoot behaviour.
 
 ### 💎 Shard Socket Override

@@ -218,3 +218,23 @@ BetterArchery keeps the quiver in custom slot `"quiver"` (`Common.CustomSlotCrea
 1. Upload `cjayride-EpicLootAdjustments-1.5.16.zip` to Thunderstore (or install from zip in Gale).
 2. In-game: enchant a BetterArchery quiver, equip it, confirm stats; unequip and confirm they drop.
 3. Git tag/push when you want the repo release to match.
+
+---
+
+# 1.5.17 — quiver enchant persistence
+
+## Goal
+Enchanted BetterArchery quivers keep their EpicLoot effect list after logout.
+
+## Cause
+BetterArchery `SetQuiverZdo` only writes prefab name `BetterArchery.QuiverPrefab`. EpicLoot stores effects in item `m_customData`. If the live quiver instance is the custom slot (not the bag), Inventory.Save never writes that JSON. Login rebuilds Ancient + SocketCount with empty `Effects`.
+
+## Fix
+Save/restore EpicLoot JSON on player ZDO key `cjayride.QuiverEpicLoot`; inventory provider save handler; persist on Player/Inventory.Save and magic-item change.
+
+## Output
+- DLL: `D:\AI-Agent-Projects\cjaycraft\Cjayride.CLCCLootPatch\bin\Release\net481\Cjayride.EpicLootAdjustments.dll` (1.5.17.0)
+- ZIP: `D:\AI-Agent-Projects\cjaycraft\Cjayride.CLCCLootPatch\dist\cjayride-EpicLootAdjustments-1.5.17.zip`
+- Packs: 4.4.53, dependency 1.5.17
+
+Already-wiped quivers cannot be reconstructed; they must be re-enchanted after this build.

@@ -7,21 +7,27 @@ using HarmonyLib;
 
 namespace Cjayride.EpicLootAdjustments
 {
-    // BetterArchery puts the quiver in a custom equipment slot ("quiver").
-    // EpicLoot only sums magic effects from Inventory.GetEquippedItems() (m_equipped
-    // items still in the bag). Custom-slot items are stored off that list, so the
-    // quiver can be enchanted and socketed while its effects never reach character
-    // stats. EpicLoot already exposes RegisterEquipmentProvider for this case.
+    // BetterArchery keeps the quiver in custom slot "quiver". EpicLoot only
+    // totals magic from Inventory.GetEquippedItems(), and BetterArchery's ZDO
+    // only stores the prefab name (BetterArchery.QuiverPrefab). Enchanting
+    // writes EpicLoot JSON onto the live ItemData; if that instance is not in
+    // the bag at save time, login reloads Ancient + sockets with an empty
+    // Effects list. This both feeds the slot into EpicLoot equipment and
+    // persists/restores the EpicLoot JSON on the player ZDO.
     public static class QuiverEnchants
     {
         const string ProviderId = "cjayride.betterarchery.quiver";
+        const string MagicZdoKey = "cjayride.QuiverEpicLoot";
+        const string EpicLootMagicKey = "randyknapp.mods.epicloot#EpicLoot.MagicItemComponent";
 
         static MethodInfo _getSlotItem;
         static MethodInfo _isMagic;
         static MethodInfo _invalidateCache;
+        static MethodInfo _applyMagicJson;
+        static MethodInfo _initCustomData;
         static FieldInfo _slotNameField;
         static FieldInfo _slotDataField;
-        static bool _registered;
+        static bool _loggedRestore;
 
         public static ConfigEntry<bool> EnableQuiverEnchants;
 
@@ -31,7 +37,7 @@ namespace Cjayride.EpicLootAdjustments
                 "Compatibility",
                 "EnableQuiverEnchants",
                 true,
-                "Count EpicLoot enchant effects on an equipped BetterArchery quiver toward character stats. The quiver can already be enchanted and take shards; without this, those effects never apply because EpicLoot only reads vanilla equipped slots.");
+                "Count EpicLoot enchant effects on an equipped BetterArchery quiver toward character stats, and keep those enchants when you log out. The quiver can already be enchanted and take shards; without this, EpicLoot only reads vanilla equipped slots and BetterArchery does not save EpicLoot's effect list with the quiver.");
         }
 
         public static void TryPatch(Harmony harmony)
@@ -50,13 +56,17 @@ namespace Cjayride.EpicLootAdjustments
                 return;
             }
 
+            RegisterInventorySave();
+            ListenForMagicChanges();
             PatchBetterArcheryEquip(harmony, "EquipItemPostfix");
             PatchBetterArcheryEquip(harmony, "UnequipItemPostfix");
             PatchBetterArcheryEquip(harmony, "SyncQuiverFromZdo");
             PatchBetterArcheryEquip(harmony, "InventoryLoadPostfix");
+            PatchInventorySave(harmony);
+            PatchPlayerSave(harmony);
 
             Plugin.Log.LogInfo(EnableQuiverEnchants.Value
-                ? "BetterArchery quiver enchants count toward character stats."
+                ? "BetterArchery quiver enchants count toward character stats and are saved with the character."
                 : "BetterArchery quiver enchants are left as EpicLoot ships them (not applied).");
         }
 
@@ -95,18 +105,35 @@ namespace Cjayride.EpicLootAdjustments
 
         public static void AfterQuiverEquipChanged()
         {
-            if (_invalidateCache == null || Player.m_localPlayer == null)
+            RestoreQuiverMagic(Player.m_localPlayer);
+            PersistQuiverMagic(Player.m_localPlayer);
+            InvalidateCache();
+        }
+
+        public static void BeforeInventorySave(Inventory __instance)
+        {
+            Player player = Player.m_localPlayer;
+            if (player == null || __instance == null || player.GetInventory() != __instance)
             {
                 return;
             }
 
-            try
+            PersistQuiverMagic(player);
+        }
+
+        public static void BeforePlayerSave(Player __instance)
+        {
+            PersistQuiverMagic(__instance);
+        }
+
+        public static void OnMagicItemChanged(ItemDrop.ItemData item, string reason)
+        {
+            if (!Enabled() || item == null || !IsQuiverItem(item))
             {
-                _invalidateCache.Invoke(null, new object[] { Player.m_localPlayer });
+                return;
             }
-            catch
-            {
-            }
+
+            PersistQuiverMagic(Player.m_localPlayer);
         }
 
         static bool Enabled()
@@ -134,21 +161,21 @@ namespace Cjayride.EpicLootAdjustments
             if (itemExt != null)
             {
                 _isMagic = AccessTools.Method(itemExt, "IsMagic", new[] { typeof(ItemDrop.ItemData) });
+                _initCustomData = AccessTools.Method(itemExt, "InitializeCustomData", new[] { typeof(ItemDrop.ItemData) });
             }
 
             Type api = AccessTools.TypeByName("EpicLoot.API");
             if (api != null)
             {
                 _invalidateCache = AccessTools.Method(api, "InvalidatePlayerEffectCache", new[] { typeof(Player) });
+                _applyMagicJson = AccessTools.Method(api, "ApplyMagicItemJson", new[] { typeof(ItemDrop.ItemData), typeof(string) });
             }
         }
 
         static bool RegisterProvider()
         {
             Type api = AccessTools.TypeByName("EpicLoot.API");
-            MethodInfo register = api == null
-                ? null
-                : AccessTools.Method(api, "RegisterEquipmentProvider");
+            MethodInfo register = api == null ? null : AccessTools.Method(api, "RegisterEquipmentProvider");
             if (register == null)
             {
                 return false;
@@ -161,13 +188,116 @@ namespace Cjayride.EpicLootAdjustments
                     ProviderId,
                     new Func<Player, List<ItemDrop.ItemData>>(GetExtraEquipped)
                 });
-                _registered = ok is bool flag && flag;
-                return _registered;
+                return ok is bool flag && flag;
             }
             catch (Exception ex)
             {
                 Plugin.Log.LogWarning("EpicLoot RegisterEquipmentProvider failed: " + ex.Message);
                 return false;
+            }
+        }
+
+        static void RegisterInventorySave()
+        {
+            Type api = AccessTools.TypeByName("EpicLoot.API");
+            if (api == null)
+            {
+                return;
+            }
+
+            MethodInfo register = AccessTools.Method(api, "RegisterInventoryProvider");
+            MethodInfo save = AccessTools.Method(api, "RegisterInventoryProviderSaveHandler");
+            if (register == null || save == null)
+            {
+                return;
+            }
+
+            try
+            {
+                register.Invoke(null, new object[]
+                {
+                    ProviderId,
+                    new Func<List<ItemDrop.ItemData>>(GetProviderItems),
+                    new Func<string, int>(CountProviderItem),
+                    new Func<string, int, int>((name, amount) => 0),
+                    new Func<ItemDrop.ItemData, int, int>((item, amount) => 0)
+                });
+                save.Invoke(null, new object[]
+                {
+                    ProviderId,
+                    new Func<ItemDrop.ItemData, bool>(SaveProviderItem)
+                });
+            }
+            catch (Exception ex)
+            {
+                Plugin.Log.LogWarning("EpicLoot quiver inventory provider failed: " + ex.Message);
+            }
+        }
+
+        static List<ItemDrop.ItemData> GetProviderItems()
+        {
+            var list = new List<ItemDrop.ItemData>();
+            Player player = Player.m_localPlayer;
+            if (!Enabled() || player == null)
+            {
+                return list;
+            }
+
+            ItemDrop.ItemData quiver = ReadQuiver(player);
+            Inventory bag = player.GetInventory();
+            if (quiver != null && (bag == null || !bag.ContainsItem(quiver)))
+            {
+                list.Add(quiver);
+            }
+
+            return list;
+        }
+
+        static int CountProviderItem(string sharedName)
+        {
+            Player player = Player.m_localPlayer;
+            ItemDrop.ItemData quiver = ReadQuiver(player);
+            if (quiver?.m_shared == null || quiver.m_shared.m_name != sharedName)
+            {
+                return 0;
+            }
+
+            Inventory bag = player == null ? null : player.GetInventory();
+            if (bag != null && bag.ContainsItem(quiver))
+            {
+                return 0;
+            }
+
+            return quiver.m_stack;
+        }
+
+        static bool SaveProviderItem(ItemDrop.ItemData item)
+        {
+            if (item == null || !IsQuiverItem(item))
+            {
+                return false;
+            }
+
+            PersistQuiverMagic(Player.m_localPlayer);
+            return true;
+        }
+
+        static void ListenForMagicChanges()
+        {
+            Type api = AccessTools.TypeByName("EpicLoot.API");
+            MethodInfo add = api == null ? null : AccessTools.Method(api, "AddMagicItemChangedListener");
+            if (add == null)
+            {
+                return;
+            }
+
+            try
+            {
+                add.Invoke(null, new object[] { new Action<ItemDrop.ItemData, string>(OnMagicItemChanged) });
+            }
+            catch (Exception ex)
+            {
+                Plugin.Log.LogWarning("Could not listen for EpicLoot magic-item changes: " + ex.Message);
             }
         }
 
@@ -211,6 +341,124 @@ namespace Cjayride.EpicLootAdjustments
             }
         }
 
+        static void PatchInventorySave(Harmony harmony)
+        {
+            MethodInfo method = AccessTools.Method(typeof(Inventory), "Save");
+            if (method == null)
+            {
+                return;
+            }
+
+            try
+            {
+                harmony.Patch(method, prefix: new HarmonyMethod(typeof(QuiverEnchants), nameof(BeforeInventorySave)));
+            }
+            catch (Exception ex)
+            {
+                Plugin.Log.LogWarning("Could not patch Inventory.Save for quiver enchants: " + ex.Message);
+            }
+        }
+
+        static void PatchPlayerSave(Harmony harmony)
+        {
+            MethodInfo method = AccessTools.Method(typeof(Player), "Save");
+            if (method == null)
+            {
+                return;
+            }
+
+            try
+            {
+                harmony.Patch(method, prefix: new HarmonyMethod(typeof(QuiverEnchants), nameof(BeforePlayerSave)));
+            }
+            catch (Exception ex)
+            {
+                Plugin.Log.LogWarning("Could not patch Player.Save for quiver enchants: " + ex.Message);
+            }
+        }
+
+        static void PersistQuiverMagic(Player player)
+        {
+            if (!Enabled() || player == null)
+            {
+                return;
+            }
+
+            ItemDrop.ItemData quiver = ReadQuiver(player) ?? FindEquippedQuiver(player);
+            string json = ReadMagicJson(quiver);
+            if (string.IsNullOrEmpty(json) || !HasEffectList(json))
+            {
+                return;
+            }
+
+            ZDO zdo = GetZdo(player);
+            if (zdo == null || !zdo.IsOwner())
+            {
+                return;
+            }
+
+            string existing = zdo.GetString(MagicZdoKey, "");
+            if (existing == json)
+            {
+                return;
+            }
+
+            zdo.Set(MagicZdoKey, json);
+        }
+
+        static void RestoreQuiverMagic(Player player)
+        {
+            if (!Enabled() || player == null)
+            {
+                return;
+            }
+
+            ItemDrop.ItemData quiver = ReadQuiver(player) ?? FindEquippedQuiver(player);
+            if (quiver == null)
+            {
+                return;
+            }
+
+            if (_initCustomData != null)
+            {
+                try
+                {
+                    _initCustomData.Invoke(null, new object[] { quiver });
+                }
+                catch
+                {
+                }
+            }
+
+            string current = ReadMagicJson(quiver);
+            if (HasEffectList(current))
+            {
+                PersistQuiverMagic(player);
+                return;
+            }
+
+            ZDO zdo = GetZdo(player);
+            string backup = zdo == null ? null : zdo.GetString(MagicZdoKey, "");
+            if (!HasEffectList(backup) || _applyMagicJson == null)
+            {
+                return;
+            }
+
+            try
+            {
+                _applyMagicJson.Invoke(null, new object[] { quiver, backup });
+                if (!_loggedRestore)
+                {
+                    _loggedRestore = true;
+                    Plugin.Log.LogInfo("Restored EpicLoot quiver enchant data after load.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Plugin.Log.LogWarning("Could not restore quiver enchant data: " + ex.Message);
+            }
+        }
+
         static ItemDrop.ItemData ReadQuiver(Player player)
         {
             string slot = SlotName();
@@ -230,6 +478,31 @@ namespace Cjayride.EpicLootAdjustments
             }
 
             return ReadQuiverFromSlotMap(player, slot);
+        }
+
+        static ItemDrop.ItemData FindEquippedQuiver(Player player)
+        {
+            Inventory bag = player == null ? null : player.GetInventory();
+            if (bag == null)
+            {
+                return null;
+            }
+
+            List<ItemDrop.ItemData> equipped = bag.GetEquippedItems();
+            if (equipped == null)
+            {
+                return null;
+            }
+
+            for (int i = 0; i < equipped.Count; i++)
+            {
+                if (IsQuiverItem(equipped[i]))
+                {
+                    return equipped[i];
+                }
+            }
+
+            return null;
         }
 
         static ItemDrop.ItemData ReadQuiverFromSlotMap(Player player, string slot)
@@ -334,6 +607,53 @@ namespace Cjayride.EpicLootAdjustments
             catch
             {
                 return false;
+            }
+        }
+
+        static string ReadMagicJson(ItemDrop.ItemData item)
+        {
+            if (item?.m_customData == null)
+            {
+                return null;
+            }
+
+            string json;
+            if (!item.m_customData.TryGetValue(EpicLootMagicKey, out json))
+            {
+                return null;
+            }
+
+            return json;
+        }
+
+        static bool HasEffectList(string json)
+        {
+            return !string.IsNullOrEmpty(json) && json.IndexOf("EffectType", StringComparison.Ordinal) >= 0;
+        }
+
+        static ZDO GetZdo(Player player)
+        {
+            if (player == null || player.m_nview == null)
+            {
+                return null;
+            }
+
+            return player.m_nview.GetZDO();
+        }
+
+        static void InvalidateCache()
+        {
+            if (_invalidateCache == null || Player.m_localPlayer == null)
+            {
+                return;
+            }
+
+            try
+            {
+                _invalidateCache.Invoke(null, new object[] { Player.m_localPlayer });
+            }
+            catch
+            {
             }
         }
     }
