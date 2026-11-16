@@ -1,5 +1,27 @@
 # EpicLootAdjustments Progress
 
+# 1.5.19 — quiver color shards
+
+## Goal
+Enchanted BetterArchery quivers accept every shardstone color, not only unique Firewalker.
+
+## Cause
+EpicLoot `Shards.GetShardEffect` uses `ResolveCategory` → `ItemTypeClassifier.GetItemInfoType`. A quiver is `ItemType.Misc`, so classification is `Unknown` and color `TypeEffects` miss. Unique shards use `UniformEffect` and skip the slot map — that is why Firewalker worked. 1.5.18 only patched enchant `AllowByItemType`, not shard category lookup. `CanSocket` then returns `$mod_epicloot_socket_shardunsupported`.
+
+## Fix
+`QuiverEnchants.AfterGetItemInfoType` forces quiver items to `"Utility"` so they match `shardstones.json` Utility rows (same family as the enchant roll).
+
+## Output
+- DLL: `D:\AI-Agent-Projects\cjaycraft\Cjayride.CLCCLootPatch\bin\Release\net481\Cjayride.EpicLootAdjustments.dll` (1.5.19.0)
+- ZIP: `D:\AI-Agent-Projects\cjaycraft\Cjayride.CLCCLootPatch\dist\cjayride-EpicLootAdjustments-1.5.19.zip` (5 flat entries)
+- Packs: 4.4.56, dependency 1.5.19
+
+## Next steps
+1. Upload the zip / install in Gale (close Valheim first).
+2. In-game: Ancient quiver, socket a Magic/Rare/Epic color shard (Red, Yellow, etc.). Expect Utility-slot effects.
+
+---
+
 ## Goal
 Ship the CJAYCRAFT legendary-set nerfs: every balance value that EpicLoot hard-codes must be reachable, with the feature ON by default, in both the client and server packs.
 

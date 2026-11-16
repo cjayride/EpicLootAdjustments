@@ -1,3 +1,6 @@
+## 1.5.19
+- **FIX:** Enchanted BetterArchery quivers showed 4 shard slots but rejected **color** shardstones (`$mod_epicloot_socket_shardunsupported`). EpicLoot looks up shard effects by slot category; quivers are **Misc** and classify as **Unknown**, so only unique shards with a uniform effect (Firewalker) worked. Quivers now classify as **Utility** for shard lookup, matching the enchant roll.
+
 ## 1.5.18
 - **FIX:** BetterArchery quivers could enchant to **Ancient with 0 effects** (sockets OK) because EpicLoot treats them as **Misc** and `magiceffects.json` has no Misc effects. Quivers now match **Utility / Shoulder** when rolling enchants.
 - **FIX:** Quiver compatibility loaded before Better Archery and was skipped; soft dependency + ObjectDB retry applies the slot hook reliably.

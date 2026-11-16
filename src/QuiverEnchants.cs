@@ -40,7 +40,7 @@ namespace Cjayride.EpicLootAdjustments
                 "Compatibility",
                 "EnableQuiverEnchants",
                 true,
-                "Count EpicLoot enchant effects on an equipped BetterArchery quiver toward character stats, and keep those enchants when you log out. The quiver can already be enchanted and take shards; without this, EpicLoot only reads vanilla equipped slots and BetterArchery does not save EpicLoot's effect list with the quiver.");
+                "Count EpicLoot enchant effects on an equipped BetterArchery quiver toward character stats, and keep those enchants when you log out. Treats the quiver as Utility for EpicLoot enchant rolls and color-shard slot lookup. Unique shards such as Firewalker already work because they are not slot-typed; color shards need this mapping.");
         }
 
         public static void TryPatch(Harmony harmony)
@@ -79,6 +79,7 @@ namespace Cjayride.EpicLootAdjustments
 
             ResolveLookups();
             PatchEffectItemTypes(_harmony);
+            PatchShardCategory(_harmony);
             if (!RegisterProvider() && !PatchGetMagicEquipment(_harmony))
             {
                 Plugin.Log.LogWarning("Could not hook EpicLoot equipment for BetterArchery quivers.");
@@ -96,7 +97,7 @@ namespace Cjayride.EpicLootAdjustments
             _applied = true;
 
             Plugin.Log.LogInfo(EnableQuiverEnchants.Value
-                ? "BetterArchery quiver enchants count toward character stats, roll Utility/Shoulder effects, and are saved with the character."
+                ? "BetterArchery quiver enchants count toward character stats, roll Utility/Shoulder effects, accept Utility-slot shards, and are saved with the character."
                 : "BetterArchery quiver enchants are left as EpicLoot ships them (not applied).");
         }
 
@@ -357,6 +358,36 @@ namespace Cjayride.EpicLootAdjustments
             {
                 Plugin.Log.LogWarning("Could not patch EpicLoot AllowByItemType for quivers: " + ex.Message);
             }
+        }
+
+        static void PatchShardCategory(Harmony harmony)
+        {
+            Type classifier = AccessTools.TypeByName("EpicLoot.GatedItemType.ItemTypeClassifier");
+            MethodInfo method = classifier == null ? null : AccessTools.Method(classifier, "GetItemInfoType");
+            if (method == null || method.ReturnType != typeof(string))
+            {
+                Plugin.Log.LogWarning("Could not hook EpicLoot item-info type for quiver shard sockets.");
+                return;
+            }
+
+            try
+            {
+                harmony.Patch(method, postfix: new HarmonyMethod(typeof(QuiverEnchants), nameof(AfterGetItemInfoType)));
+            }
+            catch (Exception ex)
+            {
+                Plugin.Log.LogWarning("Could not patch EpicLoot GetItemInfoType for quivers: " + ex.Message);
+            }
+        }
+
+        public static void AfterGetItemInfoType(ItemDrop.ItemData item, ref string __result)
+        {
+            if (!Enabled() || !IsQuiverItem(item))
+            {
+                return;
+            }
+
+            __result = "Utility";
         }
 
         public static void AfterAllowByItemType(object __instance, ItemDrop.ItemData itemData, ref bool __result)
